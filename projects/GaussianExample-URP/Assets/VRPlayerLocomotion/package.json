@@ -1,0 +1,16 @@
+{
+  "name": "com.r2b.vr-player-locomotion",
+  "version": "1.0.0",
+  "displayName": "VR Player Locomotion",
+  "description": "Self-contained VR player locomotion prefab with animations, Quest controllers, and XRI starter assets.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.unity.animation.rigging": "1.4.1",
+    "com.unity.inputsystem": "1.18.0",
+    "com.unity.render-pipelines.universal": "17.3.0",
+    "com.unity.xr.core-utils": "2.5.3",
+    "com.unity.xr.interaction.toolkit": "3.3.1",
+    "com.unity.xr.management": "4.5.3",
+    "com.unity.xr.openxr": "1.16.1"
+  }
+}

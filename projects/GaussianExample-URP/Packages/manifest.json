@@ -1,8 +1,11 @@
 {
   "dependencies": {
+    "com.unity.animation.rigging": "1.4.1",
     "com.unity.ide.rider": "3.0.38",
     "com.unity.render-pipelines.universal": "17.3.0",
+    "com.unity.xr.interaction.toolkit": "3.3.2",
     "com.unity.xr.management": "4.6.0",
+    "com.unity.xr.meta-openxr": "2.5.0",
     "com.unity.xr.openxr": "1.16.1",
     "org.nesnausk.gaussian-splatting": "file:../../../package",
     "com.unity.modules.accessibility": "1.0.0",
