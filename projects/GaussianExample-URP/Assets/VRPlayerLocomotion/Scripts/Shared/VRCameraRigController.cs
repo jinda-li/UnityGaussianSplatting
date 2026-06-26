@@ -10,7 +10,7 @@ namespace VRPlayer
         [SerializeField] private Transform hmd;
         [SerializeField] private Transform avatarHead;
         [SerializeField] private Transform avatarRoot;
-        [SerializeField] private VRControllerInput input;
+        [SerializeField] private VRPlayerControllerInput input;
 
         [Header("Snap Turn")]
         [SerializeField] private float snapAngleDeg = 35f;

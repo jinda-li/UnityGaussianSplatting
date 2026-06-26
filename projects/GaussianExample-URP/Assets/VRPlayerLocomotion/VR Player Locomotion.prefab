@@ -1125,7 +1125,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8427605948140469870}
-  - component: {fileID: 700026117353168142}
   - component: {fileID: 2919924410733784695}
   m_Layer: 0
   m_Name: VR Controller Input
@@ -1149,130 +1148,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2826489567873264215}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &700026117353168142
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7640287022364341120}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7719e602b44cbcc498ee1e666d2cb9b7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: AntidoteSDK::VRPlayer.VRControllerInput
-  moveAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Move
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: c5186b19-4568-4e57-9762-125a8d4c1b96
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: d94ac3a3-768c-4d4c-96c7-1f0cc316e0c6
-        m_Path: <XRController>{LeftHand}/{Primary2DAxis}
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Move
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  rightStickAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Right Stick
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 06fa9901-5d47-43db-97b8-9d2e3ad8185c
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 48789085-f5f6-4b25-9e19-120ff1712d2c
-        m_Path: <XRController>{RightHand}/{Primary2DAxis}
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Right Stick
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  aButtonAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: A Button
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: e0f129b0-bbf6-4d13-a1f2-a582b3ba303f
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 1a78f3dd-afe2-4e84-8be9-1b36ab322f9b
-        m_Path: <XRController>{RightHand}/{PrimaryButton}
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: A Button
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  bButtonAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: B Button
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 6941af6d-25a8-4829-84fa-8cb018a36246
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: c5b625c5-86c9-424b-9302-740741801619
-        m_Path: <XRController>{RightHand}/{SecondaryButton}
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: B Button
-        m_Flags: 0
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  leftMenuAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: Left Menu
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: c9e9c512-42e3-412b-9cf4-9f8a88d78495
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings: []
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  targetLockToggleAction:
-    m_UseReference: 0
-    m_Action:
-      m_Name: 
-      m_Type: 0
-      m_ExpectedControlType: 
-      m_Id: 647e38de-f59f-4ff8-91d2-9f285e2ffe92
-      m_Processors: 
-      m_Interactions: 
-      m_SingletonActionBindings: []
-      m_Flags: 0
-    m_Reference: {fileID: 0}
-  moveStartThreshold: 0.2
-  moveEndThreshold: 0.15
-  cameraSnapThreshold: 0.75
-  cameraSnapResetThreshold: 0.5
-  cameraForwardThreshold: 0.75
-  cameraForwardResetThreshold: 0.5
-  canMove: 1
-  canChangeCamera: 1
 --- !u!114 &2919924410733784695
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1770,7 +1645,7 @@ MonoBehaviour:
   hmd: {fileID: 3361304732106587920}
   avatarHead: {fileID: 4374828380280873753}
   avatarRoot: {fileID: 4837692440324551795}
-  input: {fileID: 700026117353168142}
+  input: {fileID: 2919924410733784695}
   snapAngleDeg: 35
   orbitRadius: 2.5
   preventOrbitClipping: 1

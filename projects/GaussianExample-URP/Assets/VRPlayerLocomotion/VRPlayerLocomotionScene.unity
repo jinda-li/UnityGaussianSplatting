@@ -367,10 +367,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 700026117353168142, guid: 030a6b8319f0f994c9d7fe465c12ffca, type: 3}
-      propertyPath: targetLockToggleAction.m_Action.m_Name
-      value: Target Lock Toggle
-      objectReference: {fileID: 0}
     - target: {fileID: 3264861409156141420, guid: 030a6b8319f0f994c9d7fe465c12ffca, type: 3}
       propertyPath: m_LocalPosition.x
       value: -2.57282

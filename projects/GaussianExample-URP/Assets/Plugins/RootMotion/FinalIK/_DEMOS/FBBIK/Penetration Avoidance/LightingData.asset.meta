@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 826c02d3587647b4eac09b61de0d5894
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 112000000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 14290
+  packageName: Final IK
+  packageVersion: 2.5
+  assetPath: Assets/Plugins/RootMotion/FinalIK/_DEMOS/FBBIK/Penetration Avoidance/LightingData.asset
+  uploadId: 897860
