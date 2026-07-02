@@ -46,6 +46,7 @@ namespace R2B.Editor.GaussianCollision
         MessageType m_StatusType = MessageType.None;
 
         [MenuItem("R2B/Gaussian Splats/Generate Ground Collision")]
+        [MenuItem("Tools/R2B/Gaussian Splats/Generate Ground Collision")]
         public static void Init()
         {
             var window = GetWindow<GaussianGroundCollisionWindow>(false, "Ground Collision", true);
