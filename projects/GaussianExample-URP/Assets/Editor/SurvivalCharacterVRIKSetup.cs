@@ -8,15 +8,6 @@ public static class SurvivalCharacterVRIKSetup
     internal const string PlayerRootName = "VR FinalIK Player";
     internal const string CharacterName = "survival_character";
 
-    [MenuItem("Tools/VR/Update survival_character VRIK References")]
-    public static void ApplyFromMenu()
-    {
-        if (Apply())
-            Debug.Log("[SurvivalCharacterVRIKSetup] VRIK references updated on survival_character.");
-        else
-            Debug.LogError("[SurvivalCharacterVRIKSetup] Failed to update VRIK references.");
-    }
-
     public static bool Apply()
     {
         var character = GameObject.Find(CharacterName);

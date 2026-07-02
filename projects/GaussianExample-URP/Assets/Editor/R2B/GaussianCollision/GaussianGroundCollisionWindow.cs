@@ -36,9 +36,12 @@ namespace R2B.Editor.GaussianCollision
         [SerializeField] bool m_ShowPreview = true;
         [SerializeField] bool m_UseTightBounds = true;
 
+        static readonly int kColorProp = Shader.PropertyToID("_Color");
+
         HeightfieldData m_PreviewHeightfield;
         Mesh m_PreviewMesh;
         Matrix4x4 m_PreviewMatrix = Matrix4x4.identity;
+        Material m_PreviewMaterial;
         string m_StatusMessage;
         MessageType m_StatusType = MessageType.None;
 
@@ -73,6 +76,26 @@ namespace R2B.Editor.GaussianCollision
         {
             SceneView.duringSceneGui -= OnSceneGUI;
             DestroyPreviewMesh();
+            if (m_PreviewMaterial != null)
+            {
+                DestroyImmediate(m_PreviewMaterial);
+                m_PreviewMaterial = null;
+            }
+        }
+
+        Material GetPreviewMaterial()
+        {
+            if (m_PreviewMaterial == null)
+            {
+                // Same shader Unity's own Handles/Gizmos use internally for simple colored overlays.
+                var shader = Shader.Find("Hidden/Internal-Colored");
+                m_PreviewMaterial = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+                m_PreviewMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                m_PreviewMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                m_PreviewMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+                m_PreviewMaterial.SetInt("_ZWrite", 0);
+            }
+            return m_PreviewMaterial;
         }
 
         static GaussianSplatRenderer FindSceneRenderer()
@@ -362,16 +385,18 @@ namespace R2B.Editor.GaussianCollision
             if (!m_ShowPreview || m_PreviewMesh == null)
                 return;
 
-            Handles.zTest = UnityEngine.Rendering.CompareFunction.LessEqual;
-            var fill = new Color(0.2f, 0.9f, 0.3f, 0.15f);
-            var wire = new Color(0.2f, 0.9f, 0.3f, 0.85f);
+            var mat = GetPreviewMaterial();
 
-            var prevColor = Handles.color;
-            Handles.color = fill;
-            Handles.DrawMesh(m_PreviewMesh, m_PreviewMatrix);
-            Handles.color = wire;
-            Handles.DrawWireMesh(m_PreviewMesh, m_PreviewMatrix);
-            Handles.color = prevColor;
+            mat.SetColor(kColorProp, new Color(0.2f, 0.9f, 0.3f, 0.2f));
+            mat.SetPass(0);
+            Graphics.DrawMeshNow(m_PreviewMesh, m_PreviewMatrix);
+
+            bool prevWireframe = GL.wireframe;
+            GL.wireframe = true;
+            mat.SetColor(kColorProp, new Color(0.1f, 0.6f, 0.2f, 0.9f));
+            mat.SetPass(0);
+            Graphics.DrawMeshNow(m_PreviewMesh, m_PreviewMatrix);
+            GL.wireframe = prevWireframe;
         }
     }
 }
