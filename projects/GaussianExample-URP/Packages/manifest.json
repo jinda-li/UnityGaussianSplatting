@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.unity.ai.assistant": "2.13.0-pre.2",
     "com.unity.animation.rigging": "1.4.1",
     "com.unity.ide.rider": "3.0.38",
