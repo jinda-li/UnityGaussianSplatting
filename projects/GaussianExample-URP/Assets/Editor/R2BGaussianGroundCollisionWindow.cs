@@ -63,7 +63,6 @@ namespace R2B.Editor.GaussianCollision
         static readonly int kColorProp = Shader.PropertyToID("_Color");
 
         [MenuItem("R2B/Gaussian Splats/Generate Splat Collision")]
-        [MenuItem("Tools/R2B/Gaussian Splats/Generate Splat Collision")]
         public static void Init()
         {
             var window = GetWindow<GaussianGroundCollisionWindow>(false, "Splat Collision", true);
