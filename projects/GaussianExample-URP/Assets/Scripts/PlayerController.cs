@@ -127,8 +127,13 @@ public class PlayerController : MonoBehaviour
 
         playerBody.enabled = true;
 
+        // VRIK Animated Locomotion needs Mecanim root motion to actually turn the
+        // model (its turn-on-spot blend tree only rotates the root via animator
+        // root motion; the solver's own root-lerp only ever corrects position,
+        // never rotation). Without this the character keeps replaying the turn
+        // animation without ever resolving it, i.e. spins in place.
         if (animator != null)
-            animator.applyRootMotion = false;
+            animator.applyRootMotion = true;
 
         bool grounded = playerBody.isGrounded;
         if (grounded && _verticalVelocity < 0f)
@@ -149,11 +154,18 @@ public class PlayerController : MonoBehaviour
         // IKRigRoot is a separate GameObject (not a child of PlayerBody), so during locomotion
         // it has to be dragged along by PlayerBody's actual (collision-resolved) delta each
         // frame — this keeps Head/Left Hand/Right Hand riding along with the body instead of
-        // staying behind while IKRetarget is disabled.
+        // staying behind while IKRetarget is disabled. Dragging the head target is itself the
+        // "move" signal VRIK Animated Locomotion walks toward; the avatar's real root position
+        // is owned by VRIK's own root-lerp + root motion, not by PlayerBody.
+        //
+        // Do NOT call vrik.solver.AddPlatformMotion here: that only nudges the solver's
+        // internal last-root-position bookkeeping, it does not move references.root (which
+        // isn't parented under PlayerBody). Calling it with a delta that was never actually
+        // applied to the root desyncs that bookkeeping from the real root transform and
+        // corrupts the next frame's offset/turn calculations — a second source of the
+        // rotation/offset glitches on top of the applyRootMotion issue above.
         if (ikRigRoot != null)
             ikRigRoot.position += actualDelta;
-
-        vrik.solver.AddPlatformMotion(actualDelta, Quaternion.identity, playerBody.transform.position);
     }
 
     private Vector3 GetViewRelativeMove(Vector2 stick)
@@ -198,6 +210,6 @@ public class PlayerController : MonoBehaviour
             playerBody.enabled = true;
 
         if (animator != null)
-            animator.applyRootMotion = false;
+            animator.applyRootMotion = true;
     }
 }
