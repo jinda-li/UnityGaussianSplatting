@@ -31,6 +31,12 @@ namespace VRPlayer
         [SerializeField] private float responsiveness = 10f;
         [SerializeField] private float idleThreshold = 0.05f;
 
+        // Caps how far a full stick push reaches into the ForwardSpeed/LateralSpeed blend
+        // space (0..1). The 2D blend tree already picks slower walk clips at low values and
+        // faster run clips near 1, so capping this instead of the animation playback speed
+        // keeps gait selection natural (no slow-motion foot sliding).
+        [SerializeField, Range(0f, 1f)] private float maxSpeedMultiplier = 1f;
+
         [Header("Facing")]
         [SerializeField] private float yawRotateSpeed = 12f;
 
@@ -306,8 +312,8 @@ namespace VRPlayer
                 ? bodyRoot.InverseTransformDirection(worldMove)
                 : transform.InverseTransformDirection(worldMove);
 
-            float targetForward = localMove.z;
-            float targetLateral = localMove.x;
+            float targetForward = localMove.z * maxSpeedMultiplier;
+            float targetLateral = localMove.x * maxSpeedMultiplier;
 
             _currentForward = Mathf.MoveTowards(_currentForward, targetForward, responsiveness * Time.deltaTime);
             _currentLateral = Mathf.MoveTowards(_currentLateral, targetLateral, responsiveness * Time.deltaTime);
