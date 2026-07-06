@@ -502,13 +502,20 @@ namespace R2B.Editor.GaussianCollision
             plan.stagingDirectory = CreateStagingDirectory();
             Directory.CreateDirectory(plan.stagingDirectory);
 
+            // Decimate per-tile (small single-input GPU jobs) instead of one massive
+            // pass on the merged file — avoids OOM/GPU-timeout crashes on large scenes.
+            string[] perTileDecimateAmount = useDecimate
+                ? BuildPerTileDecimateAmounts(metaFiles, decimateAmount)
+                : null;
+
             var currentFiles = new List<string>(metaFiles.Count);
             for (int i = 0; i < metaFiles.Count; i++)
             {
                 string meta = metaFiles[i];
                 string tilePly = Path.Combine(plan.stagingDirectory, $"t{i:D3}.ply");
                 plan.jobs.Add(CreateConvertSettings(
-                    new[] { meta }, tilePly, overwrite: true, filterNan, useDecimate: false, decimateAmount));
+                    new[] { meta }, tilePly, overwrite: true, filterNan,
+                    useDecimate, perTileDecimateAmount?[i] ?? decimateAmount));
                 currentFiles.Add(tilePly);
             }
 
@@ -517,7 +524,8 @@ namespace R2B.Editor.GaussianCollision
             int mergeBatchSize = GetSafeMergeBatchSize(
                 cli, currentFiles, mergedStagingPath, overwrite, useDecimate: false, decimateAmount: null);
 
-            // Merge tiles in batches. Never decimate here — splat-transform ignores -F on multi-input merges.
+            // Merge tiles in batches. Tiles are already decimated above — never decimate
+            // here, splat-transform ignores -F on multi-input merges.
             while (currentFiles.Count > 1)
             {
                 var nextFiles = new List<string>();
@@ -557,18 +565,7 @@ namespace R2B.Editor.GaussianCollision
                 return plan;
 
             string mergedSource = currentFiles[0];
-            if (useDecimate)
-            {
-                // Decimate must be a separate single-input pass (verified against splat-transform v2.7.1).
-                plan.jobs.Add(CreateConvertSettings(
-                    new[] { mergedSource },
-                    finalOutputPath,
-                    overwrite,
-                    filterNan: false,
-                    useDecimate: true,
-                    decimateAmount));
-            }
-            else if (!PathsEqual(mergedSource, finalOutputPath))
+            if (!PathsEqual(mergedSource, finalOutputPath))
             {
                 plan.jobs.Add(CreateConvertSettings(
                     new[] { mergedSource },
@@ -580,6 +577,41 @@ namespace R2B.Editor.GaussianCollision
             }
 
             return plan;
+        }
+
+        // Splits a decimate amount across tiles so per-tile GPU jobs stay small.
+        // Percentages apply uniformly; absolute counts are split proportionally by
+        // each tile's own splat count so the total still lands near the requested amount.
+        static string[] BuildPerTileDecimateAmounts(IReadOnlyList<string> metaFiles, string decimateAmount)
+        {
+            var amounts = new string[metaFiles.Count];
+            string trimmed = decimateAmount?.Trim() ?? string.Empty;
+            bool isPercent = trimmed.EndsWith("%", StringComparison.Ordinal);
+
+            if (isPercent || !int.TryParse(trimmed, out int targetTotal) || targetTotal <= 0)
+            {
+                for (int i = 0; i < amounts.Length; i++)
+                    amounts[i] = decimateAmount;
+                return amounts;
+            }
+
+            var counts = new int[metaFiles.Count];
+            long total = 0;
+            for (int i = 0; i < metaFiles.Count; i++)
+            {
+                TryReadSogTileCount(metaFiles[i], out counts[i]);
+                total += counts[i];
+            }
+
+            for (int i = 0; i < metaFiles.Count; i++)
+            {
+                int share = total > 0
+                    ? (int)Math.Round(targetTotal * (counts[i] / (double)total))
+                    : targetTotal;
+                amounts[i] = Math.Max(1, share).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return amounts;
         }
 
         static string CreateStagingDirectory()
