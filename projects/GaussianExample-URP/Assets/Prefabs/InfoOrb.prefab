@@ -5283,7 +5283,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRPlayer.InfoOrbController
   linePointer: {fileID: 8233869019699669135}
-  lineStart: {fileID: 0}
+  lineStart: {fileID: 1280508529435794878}
   lineEnd: {fileID: 2839865750598477020}
   orbVisual: {fileID: 1633275016574206515}
   nearFxRoot: {fileID: 4442974269728870137}
@@ -5396,8 +5396,8 @@ LineRenderer:
       ctime6: 0
       ctime7: 0
       atime0: 0
-      atime1: 6333
-      atime2: 57329
+      atime1: 13713
+      atime2: 48848
       atime3: 65535
       atime4: 0
       atime5: 0
