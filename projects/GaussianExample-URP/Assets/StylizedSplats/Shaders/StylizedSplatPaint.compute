@@ -1,0 +1,50 @@
+// Paint kernel for the Stylized Splats feature. Reads splat positions from the
+// package's own GPU buffers (bound by StylizedSplatsController via reflection,
+// since GaussianSplatRenderer keeps them private/internal) and accumulates a
+// per-splat paint-progress value read by StylizedSplats.shader.
+//
+// Brush is a capsule around the controller ray, not a raycast hit point: the
+// player stands inside the splat volume, so a single collider proxy can't work
+// (a ray whose origin is inside a collider never registers the exit hit). Every
+// splat within radius of the ray segment [origin, origin + dir*maxDistance]
+// gets painted - depth along the ray is intentionally ignored.
+#pragma kernel CSPaintSplats
+
+#define GROUP_SIZE 1024
+
+#include "Packages/org.nesnausk.gaussian-splatting/Shaders/GaussianSplatting.hlsl"
+
+RWStructuredBuffer<float> _PaintProgress;
+uint _PaintSplatCount;
+float4x4 _PaintObjectToWorld;
+float3 _PaintRayOrigin;
+float3 _PaintRayDir;
+float _PaintMaxDistance;
+float _PaintRadius;
+float _PaintStrength;
+
+[numthreads(GROUP_SIZE,1,1)]
+void CSPaintSplats (uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= _PaintSplatCount)
+        return;
+
+    float3 localPos = LoadSplatPos(idx);
+    float3 worldPos = mul(_PaintObjectToWorld, float4(localPos, 1)).xyz;
+
+    float3 toSplat = worldPos - _PaintRayOrigin;
+    float along = clamp(dot(toSplat, _PaintRayDir), 0.0, _PaintMaxDistance);
+    float3 closestOnRay = _PaintRayOrigin + _PaintRayDir * along;
+
+    float d = distance(worldPos, closestOnRay);
+    float falloff = saturate(1.0 - d / max(_PaintRadius, 1e-4));
+    falloff = falloff * falloff * (3.0 - 2.0 * falloff);
+
+    float add = falloff * _PaintStrength;
+    if (add <= 0)
+        return;
+
+    float prev = _PaintProgress[idx];
+    _PaintProgress[idx] = saturate(prev + add);
+}
