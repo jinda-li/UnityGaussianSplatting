@@ -24,6 +24,9 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float moveSpeed = 2.5f;
     [SerializeField] private float gravity = -25f;
 
+    [Header("Calibration")]
+    [SerializeField] private KeyCode calibrateKey = KeyCode.C;
+
     private PlayerState _state = PlayerState.Idle;
     private float _verticalVelocity;
     private Vector3 _lastHmdPosition;
@@ -48,6 +51,9 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        if (Input.GetKeyDown(calibrateKey))
+            ApplyCalibration();
+
         if (input == null)
             return;
 
@@ -90,9 +96,15 @@ public class PlayerController : MonoBehaviour
             FollowHeadHorizontally();
         }
 
-        // VRIK Animated Locomotion moves the root via solver root lerp, not animator root motion.
+        // Root motion has to stay on even in first-person: turning your head without
+        // moving is normal in room-scale VR, and VRIK's turn-on-spot animation is the
+        // only thing that can actually rotate the root to catch up with it (the
+        // solver's own root-lerp only ever corrects position, never rotation — see
+        // TickLocomotion). With this off, VRIK_Turn gets stuck at whatever mismatch
+        // exists between body and head facing and never resolves, which is what was
+        // causing perpetual foot-shuffling while standing still.
         if (animator != null)
-            animator.applyRootMotion = false;
+            animator.applyRootMotion = true;
     }
 
     // Room-scale: drag the CharacterController along with the physical HMD movement using
@@ -192,7 +204,7 @@ public class PlayerController : MonoBehaviour
         _hasLastHmdPosition = false;
 
         if (animator != null)
-            animator.applyRootMotion = false;
+            animator.applyRootMotion = true;
 
         _verticalVelocity = 0f;
     }
@@ -211,5 +223,77 @@ public class PlayerController : MonoBehaviour
 
         if (animator != null)
             animator.applyRootMotion = true;
+    }
+
+    // Replaces VRIKCalibrationBasic / VRCalibrationTrigger: those either reparent
+    // solver targets under the XR anchors (VRIKCalibrator.Calibrate, breaks IKRetarget's
+    // static IKRigRoot targets) or only ever touched scale, never rotation. Only usable
+    // in Idle (first-person): during Locomotion the head target is a frozen/dragged
+    // proxy, not a live HMD reading, so there is nothing meaningful to calibrate against.
+    [ContextMenu("Apply Calibration")]
+    public void ApplyCalibration()
+    {
+        if (_state != PlayerState.Idle)
+        {
+            Debug.LogWarning($"{nameof(PlayerController)}: calibration only works in first-person (Idle) state.", this);
+            return;
+        }
+
+        if (vrik == null || hmd == null)
+        {
+            Debug.LogError($"{nameof(PlayerController)}: missing vrik or hmd reference for calibration.", this);
+            return;
+        }
+
+        Transform root = vrik.references.root;
+        Transform headBone = vrik.references.head;
+        Transform headTarget = vrik.solver.spine.headTarget;
+
+        if (root == null || headBone == null || headTarget == null)
+        {
+            Debug.LogError($"{nameof(PlayerController)}: VRIK root/head bone/head target not assigned.", this);
+            return;
+        }
+
+        // Re-face the body to the camera. This rig's mesh visually faces root's local
+        // -Z, not +Z — confirmed by live testing: with root.forward pointed straight at
+        // the camera, the character stood facing directly away from it. VRIK's own
+        // continuous turn-tracking already compensates for this via
+        // vrik.solver.spine.rootHeadingOffset (set to 180 on this character in the
+        // Inspector); apply that same offset here so a one-time calibration snap agrees
+        // with it instead of fighting it on the next frame.
+        //
+        // (Comparing the head *bone's* current forward to the camera — the previous
+        // approach here — doesn't work: VRIK continuously re-solves the head bone to
+        // already match the camera regardless of root's facing, so that comparison is
+        // always ~zero and never actually corrects root.)
+        Vector3 cameraForward = FlattenY(hmd.forward);
+        if (cameraForward.sqrMagnitude > 0.0001f)
+        {
+            Quaternion headingFix = Quaternion.Euler(0f, vrik.solver.spine.rootHeadingOffset, 0f);
+            root.rotation = Quaternion.LookRotation(cameraForward.normalized) * headingFix;
+        }
+
+        // Re-derive scale from the current head target height vs the head bone's height.
+        float rootToHeadTarget = headTarget.position.y - root.position.y;
+        float rootToHeadBone = headBone.position.y - root.position.y;
+        if (Mathf.Abs(rootToHeadBone) > 0.0001f)
+        {
+            float sizeF = rootToHeadTarget / rootToHeadBone;
+            if (sizeF > 0f)
+                root.localScale = Vector3.one * (root.localScale.y * sizeF);
+        }
+
+        vrik.solver.FixTransforms();
+
+        // Re-sync the camera rig to the freshly calibrated avatar so the view doesn't stay
+        // offset from the body that just rotated/rescaled under it.
+        cameraRig?.SnapRigToAvatarHead();
+    }
+
+    private static Vector3 FlattenY(Vector3 v)
+    {
+        v.y = 0f;
+        return v;
     }
 }

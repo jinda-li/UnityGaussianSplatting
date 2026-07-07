@@ -234,6 +234,11 @@ namespace RootMotion.FinalIK
                 Vector3 headForwardLocal = Quaternion.Inverse(solver.rootBone.solverRotation) * headForward;
                 float angle = Mathf.Atan2(headForwardLocal.x, headForwardLocal.z) * Mathf.Rad2Deg;
                 angle += solver.spine.rootHeadingOffset;
+                // Wrap back to [-180, 180]: atan2 returns +-180 at the branch cut, so with
+                // rootHeadingOffset = +-180 (rig authored facing -Z) the sum flips between
+                // ~0 and ~+-360, making turnTarget oscillate between 0 and +-4 and the
+                // turn-on-spot animation loop forever while standing still.
+                angle = Mathf.DeltaAngle(0f, angle);
                 float turnTarget = angle / 90f;
                 bool isTurning = true;
                 if (Mathf.Abs(turnTarget) < 0.2f)

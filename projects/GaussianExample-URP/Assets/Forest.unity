@@ -2240,7 +2240,7 @@ MonoBehaviour:
       neckStiffness: 0.05
       moveBodyBackWhenCrouching: 0.5
       maxRootAngle: 90
-      rootHeadingOffset: 0
+      rootHeadingOffset: -180
     leftArm:
       bones: []
       target: {fileID: 1987000009}
