@@ -16,6 +16,26 @@ namespace R2B.Editor.GaussianCollision
             return renderer.InverseTransformPoint(world);
         }
 
+        /// <summary>
+        /// splat-transform voxel format v1.1 stores bounds in the PlayCanvas engine frame:
+        /// the source PLY/file frame rotated 180° about Z (x → -x, y → -y, z unchanged).
+        /// The rotation is its own inverse.
+        /// </summary>
+        public static Vector3 FileToEngine(Vector3 file)
+        {
+            return new Vector3(-file.x, -file.y, file.z);
+        }
+
+        public static Vector3 EngineToFile(Vector3 engine)
+        {
+            return new Vector3(-engine.x, -engine.y, engine.z);
+        }
+
+        public static Vector3 WorldToEngine(Transform renderer, Vector3 world)
+        {
+            return FileToEngine(WorldToFile(renderer, world));
+        }
+
         public static Vector3 FileToWorld(Transform renderer, Vector3 file)
         {
             return renderer.TransformPoint(file);
@@ -89,6 +109,38 @@ namespace R2B.Editor.GaussianCollision
                 fileMin = Vector3.Min(fileMin, fileCorner);
                 fileMax = Vector3.Max(fileMax, fileCorner);
             }
+        }
+
+        public static void WorldBoxToEngineAabb(
+            Transform renderer,
+            Vector3 worldCenter,
+            Vector3 worldHalfExtents,
+            out Vector3 engineMin,
+            out Vector3 engineMax)
+        {
+            WorldBoxToFileAabb(renderer, worldCenter, worldHalfExtents, out Vector3 fileMin, out Vector3 fileMax);
+
+            // Negating x and y swaps which corner is min/max on those axes.
+            engineMin = new Vector3(-fileMax.x, -fileMax.y, fileMin.z);
+            engineMax = new Vector3(-fileMin.x, -fileMin.y, fileMax.z);
+        }
+
+        /// <summary>
+        /// The collision GLB is loaded verbatim (no axis conversion), so its vertices are in the
+        /// engine frame. Rotate them into file space so the mesh lines up under the renderer
+        /// transform. A 180° Z rotation is a proper rotation — triangle winding is unaffected.
+        /// </summary>
+        public static void TransformMeshEngineToFile(Mesh mesh)
+        {
+            if (mesh == null)
+                return;
+
+            Vector3[] vertices = mesh.vertices;
+            for (int i = 0; i < vertices.Length; ++i)
+                vertices[i] = EngineToFile(vertices[i]);
+            mesh.vertices = vertices;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
         }
 
         public static bool HasNonIdentityRotation(Transform renderer)
