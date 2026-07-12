@@ -29,6 +29,8 @@ namespace StylizedSplats
         public float m_AlphaGamma = 1f;
         public bool m_RandomFlip;
         [Range(0f, 1f)] public float m_BaseSaturation = 0.12f;
+        [Tooltip("Lifts the unpainted base toward white (0 = plain gray, 1 = pure white). Keep below ~0.8 so shading stays readable")]
+        [Range(0f, 1f)] public float m_BaseLift = 0.6f;
 
         GraphicsBuffer m_PaintProgress;
         int m_PaintProgressCount;
@@ -97,6 +99,7 @@ namespace StylizedSplats
             Shader.SetGlobalFloat(Props.StyleAlphaGamma, m_AlphaGamma);
             Shader.SetGlobalFloat(Props.StyleRandomFlip, m_RandomFlip ? 1f : 0f);
             Shader.SetGlobalFloat(Props.BaseSaturation, m_BaseSaturation);
+            Shader.SetGlobalFloat(Props.BaseLift, m_BaseLift);
             if (m_BrushTexture != null)
                 Shader.SetGlobalTexture(Props.StylizedBrushTex, m_BrushTexture);
 
@@ -172,6 +175,7 @@ namespace StylizedSplats
             public const string StyleAlphaGamma = "_StyleAlphaGamma";
             public const string StyleRandomFlip = "_StyleRandomFlip";
             public const string BaseSaturation = "_BaseSaturation";
+            public const string BaseLift = "_BaseLift";
             public const string StylizedBrushTex = "_StylizedBrushTex";
             public const string SplatPaintProgress = "_SplatPaintProgress";
             public const string SplatPaintValid = "_SplatPaintValid";

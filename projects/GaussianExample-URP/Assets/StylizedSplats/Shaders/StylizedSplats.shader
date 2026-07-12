@@ -37,6 +37,7 @@ float _StyleAlphaCut;
 float _StyleAlphaGamma;
 float _StyleRandomFlip;
 float _BaseSaturation;
+float _BaseLift;
 
 Texture2D _StylizedBrushTex;
 SamplerState sampler_StylizedBrushTex;
@@ -90,13 +91,16 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
         float styleAmount = 1; // 1 = full gaussian (stock look)
         if (_StylizedEnable != 0)
         {
-            // base look: desaturate, then let paint progress bring color back
+            // base look: desaturate, lift toward white (unpainted-canvas feel;
+            // 1 would be pure white fog - keep some luminance shading so the
+            // scene stays readable), then let paint progress bring color back
             half lum = dot(o.col.rgb, half3(0.299h, 0.587h, 0.114h));
             half3 desat = lerp(lum.xxx, o.col.rgb, saturate(_BaseSaturation));
+            half3 baseCol = lerp(desat, half3(1, 1, 1), saturate(_BaseLift));
             float paint = 0;
             if (_SplatPaintValid != 0)
                 paint = _SplatPaintProgress[instID];
-            o.col.rgb = lerp(desat, o.col.rgb, saturate(paint));
+            o.col.rgb = lerp(baseCol, o.col.rgb, saturate(paint));
 
             SplatData splat = LoadSplatData(instID);
             float worldScale = length(unity_ObjectToWorld._m00_m10_m20);

@@ -704,6 +704,16 @@ MonoBehaviour:
   brushRadius: 1
   paintRatePerSecond: 3
   maxDistance: 6
+  occlusionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  sprayClip: {fileID: 8300000, guid: a20294a2f30d25e46b84b28261d805f0, type: 3}
+  sprayVolume: 0.8
+  audioFadeIn: 0.08
+  audioFadeOut: 0.2
+  sprayParticleShader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
+  particleRate: 90
+  hapticIntensity: 0.3
 --- !u!4 &1211213691
 Transform:
   m_ObjectHideFlags: 0
