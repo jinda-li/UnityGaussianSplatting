@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
@@ -214,7 +215,7 @@ namespace R2B.Editor.GaussianCollision
             path = Path.GetFullPath(path);
             if (File.Exists(path))
             {
-                if (IsSogMetaJson(path))
+                if (IsSogMetaJson(path) || IsBundledSogFile(path))
                     results.Add(path);
                 return results;
             }
@@ -242,6 +243,18 @@ namespace R2B.Editor.GaussianCollision
             return !string.IsNullOrWhiteSpace(path) &&
                    path.EndsWith("meta.json", StringComparison.OrdinalIgnoreCase) &&
                    File.Exists(path);
+        }
+
+        public static bool IsBundledSogFile(string path)
+        {
+            return !string.IsNullOrWhiteSpace(path) &&
+                   path.EndsWith(".sog", StringComparison.OrdinalIgnoreCase) &&
+                   File.Exists(path);
+        }
+
+        public static bool IsSogInputFile(string path)
+        {
+            return IsSogMetaJson(path) || IsBundledSogFile(path);
         }
 
         public static bool IsStreamedSogBundle(string folder)
@@ -419,7 +432,9 @@ namespace R2B.Editor.GaussianCollision
 
             try
             {
-                string head = ReadMetaHead(metaPath, 512);
+                if (!TryReadMetaHead(metaPath, 512, out string head))
+                    return false;
+
                 Match match = s_RootCountRegex.Match(head);
                 if (!match.Success)
                     return false;
@@ -437,10 +452,12 @@ namespace R2B.Editor.GaussianCollision
             int bands = 1;
             try
             {
-                string head = ReadMetaHead(metaPath, 4096);
-                Match match = s_ShBandsRegex.Match(head);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int parsed))
-                    bands = parsed;
+                if (TryReadMetaHead(metaPath, 4096, out string head))
+                {
+                    Match match = s_ShBandsRegex.Match(head);
+                    if (match.Success && int.TryParse(match.Groups[1].Value, out int parsed))
+                        bands = parsed;
+                }
             }
             catch
             {
@@ -454,6 +471,61 @@ namespace R2B.Editor.GaussianCollision
                 2 => 140,
                 _ => 248
             };
+        }
+
+        static bool TryReadMetaHead(string inputPath, int maxChars, out string head)
+        {
+            head = null;
+            if (string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
+                return false;
+
+            if (IsBundledSogFile(inputPath))
+                return TryReadBundledSogMetaHead(inputPath, maxChars, out head);
+
+            try
+            {
+                head = ReadMetaHead(inputPath, maxChars);
+                return !string.IsNullOrEmpty(head);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        static bool TryReadBundledSogMetaHead(string sogPath, int maxChars, out string head)
+        {
+            head = null;
+            try
+            {
+                using var zip = ZipFile.OpenRead(sogPath);
+                ZipArchiveEntry entry = zip.GetEntry("meta.json");
+                if (entry == null)
+                {
+                    foreach (ZipArchiveEntry candidate in zip.Entries)
+                    {
+                        if (candidate.FullName.Equals("meta.json", StringComparison.OrdinalIgnoreCase))
+                        {
+                            entry = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                if (entry == null)
+                    return false;
+
+                using var stream = entry.Open();
+                using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                char[] buffer = new char[maxChars];
+                int read = reader.ReadBlock(buffer, 0, buffer.Length);
+                head = new string(buffer, 0, read);
+                return read > 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         static string ReadMetaHead(string metaPath, int maxChars)

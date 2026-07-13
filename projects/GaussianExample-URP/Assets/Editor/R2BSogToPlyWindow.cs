@@ -132,15 +132,15 @@ namespace R2B.Editor.GaussianCollision
                 if (GUILayout.Button("superspl.at", EditorStyles.linkLabel, GUILayout.Width(72)))
                     Application.OpenURL("https://superspl.at");
             }
-            EditorGUILayout.LabelField("Pick the unzipped folder (parent of lod-meta.json).", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Pick a .sog file or unzipped SOG folder (parent of lod-meta.json).", EditorStyles.miniLabel);
 
             EditorGUI.BeginChangeCheck();
             var inputRect = EditorGUILayout.GetControlRect();
-            m_InputPath = m_InputPicker.PathFieldGUI(
+            m_InputPath = m_InputPicker.FolderOrFilePathFieldGUI(
                 inputRect,
-                new GUIContent("Folder"),
+                new GUIContent("Input"),
                 m_InputPath,
-                null,
+                "sog",
                 "SogToPlyInput");
 
             if (EditorGUI.EndChangeCheck())
@@ -153,14 +153,21 @@ namespace R2B.Editor.GaussianCollision
 
             if (m_DiscoveredMetaFiles.Count > 0)
             {
-                string note = SplatTransformCli.IsStreamedSogBundle(ResolveInputDirectory())
-                    ? "VR Ready bundle"
-                    : "SOG tiles";
-                EditorGUILayout.LabelField($"{m_DiscoveredMetaFiles.Count} tiles · {note}", EditorStyles.miniLabel);
+                if (m_DiscoveredMetaFiles.Count == 1 && SplatTransformCli.IsBundledSogFile(m_DiscoveredMetaFiles[0]))
+                {
+                    EditorGUILayout.LabelField("bundled SOG", EditorStyles.miniLabel);
+                }
+                else
+                {
+                    string note = SplatTransformCli.IsStreamedSogBundle(ResolveInputDirectory())
+                        ? "VR Ready bundle"
+                        : "SOG tiles";
+                    EditorGUILayout.LabelField($"{m_DiscoveredMetaFiles.Count} tiles · {note}", EditorStyles.miniLabel);
+                }
             }
             else if (!string.IsNullOrWhiteSpace(m_InputPath))
             {
-                EditorGUILayout.LabelField("No meta.json found in this folder.", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("No SOG input found. Pick a .sog file or folder with meta.json.", EditorStyles.miniLabel);
             }
         }
 
@@ -324,6 +331,18 @@ namespace R2B.Editor.GaussianCollision
 
         void SuggestOutputPath()
         {
+            if (SplatTransformCli.IsBundledSogFile(m_InputPath))
+            {
+                string fullPath = Path.GetFullPath(m_InputPath);
+                string sogName = Path.GetFileNameWithoutExtension(fullPath);
+                string dir = Path.GetDirectoryName(fullPath);
+                m_OutputPath = m_OutputMode == SogToPlyOutputMode.MergedSinglePly
+                    ? Path.ChangeExtension(fullPath, ".ply")
+                    : Path.Combine(dir, $"{sogName}_ply_tiles");
+                SavePrefs();
+                return;
+            }
+
             string inputDir = ResolveInputDirectory();
             if (string.IsNullOrWhiteSpace(inputDir))
                 return;
@@ -392,7 +411,7 @@ namespace R2B.Editor.GaussianCollision
 
                 RefreshDiscoveredFiles();
                 if (m_DiscoveredMetaFiles.Count == 0)
-                    throw new InvalidOperationException("No SOG tiles found. Check the input folder.");
+                    throw new InvalidOperationException("No SOG input found. Pick a .sog file or folder with meta.json.");
 
                 if (string.IsNullOrWhiteSpace(m_OutputPath))
                     throw new InvalidOperationException("Set an output path.");

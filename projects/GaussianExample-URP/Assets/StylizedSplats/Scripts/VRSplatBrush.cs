@@ -20,10 +20,13 @@ namespace StylizedSplats
     //  - a looping 3D spray sound faded in/out with the trigger pull
     //  - a cone mist ParticleSystem aimed along the spray ray
     //  - a light haptic buzz scaled by trigger pull
-    // The AudioSource/ParticleSystem live on a runtime-created "SprayFX" child
-    // of each hand's ray origin; the particle material is built at runtime from
-    // sprayParticleShader (wired in the scene so the URP particle shader ships
-    // in builds; falls back to Shader.Find in the editor).
+    // The AudioSource/ParticleSystem live on a "SprayFX" child of each hand's
+    // ray origin, instantiated from sprayFxPrefab (StylizedSplats/Prefabs/
+    // SprayFX.prefab) so the effect can be tuned visually in the Editor. If
+    // sprayFxPrefab is left unassigned, BuildDefaultSprayFx() builds an
+    // equivalent effect at runtime instead, with its particle material built
+    // from sprayParticleShader (wired in the scene so the URP particle shader
+    // ships in builds; falls back to Shader.Find in the editor).
     //
     // Drop this on its own GameObject (it does NOT need to move with the
     // controller - it's a logic holder that reads the live controller ray
@@ -71,7 +74,9 @@ namespace StylizedSplats
         [SerializeField] private LayerMask occlusionMask = ~0;
 
         [Header("Spray Feedback")]
-        [Tooltip("Looping spray sound; one 3D AudioSource per hand, volume follows trigger pull")]
+        [Tooltip("Prefab with an AudioSource + ParticleSystem, instantiated per hand as a child of the ray origin (see StylizedSplats/Prefabs/SprayFX.prefab). Leave unassigned to fall back to a code-built default")]
+        [SerializeField] private GameObject sprayFxPrefab;
+        [Tooltip("Looping spray sound; one 3D AudioSource per hand, volume follows trigger pull. Overrides the prefab's clip if assigned")]
         [SerializeField] private AudioClip sprayClip;
         [SerializeField, Range(0f, 1f)] private float sprayVolume = 0.8f;
         [SerializeField, Min(0.01f)] private float audioFadeIn = 0.08f;
@@ -218,13 +223,41 @@ namespace StylizedSplats
             }
         }
 
+        // Instantiates sprayFxPrefab under the ray origin when assigned (so the
+        // AudioSource/ParticleSystem can be tuned visually in the Editor); falls
+        // back to a code-built default of the same shape when left unwired.
         private void CreateSprayFx(Hand hand)
         {
             if (hand.rayOrigin == null)
                 return;
 
-            var go = new GameObject("SprayFX");
+            GameObject go = sprayFxPrefab != null ? Instantiate(sprayFxPrefab) : BuildDefaultSprayFx();
+            go.name = "SprayFX";
             go.transform.SetParent(hand.rayOrigin, false);
+
+            hand.audio = go.GetComponentInChildren<AudioSource>();
+            hand.particles = go.GetComponentInChildren<ParticleSystem>();
+
+            if (hand.audio != null)
+            {
+                hand.audio.playOnAwake = false;
+                hand.audio.volume = 0f;
+                if (sprayClip != null)
+                    hand.audio.clip = sprayClip;
+            }
+
+            if (hand.particles != null)
+            {
+                hand.particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                ParticleSystem.EmissionModule emission = hand.particles.emission;
+                emission.rateOverTime = 0f;
+                hand.particles.Play();
+            }
+        }
+
+        private GameObject BuildDefaultSprayFx()
+        {
+            var go = new GameObject("SprayFX");
 
             AudioSource audio = go.AddComponent<AudioSource>();
             audio.clip = sprayClip;
@@ -235,7 +268,6 @@ namespace StylizedSplats
             audio.dopplerLevel = 0f;
             audio.minDistance = 0.3f;
             audio.maxDistance = 12f;
-            hand.audio = audio;
 
             ParticleSystem ps = go.AddComponent<ParticleSystem>();
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -278,7 +310,7 @@ namespace StylizedSplats
             psRenderer.receiveShadows = false;
 
             ps.Play();
-            hand.particles = ps;
+            return go;
         }
 
         private Material GetSprayMaterial()

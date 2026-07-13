@@ -108,6 +108,20 @@ namespace GaussianSplatting.Editor.Utils
             return true;
         }
 
+        static bool IsFolderOrFilePath(string path, string fileExtension)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+            if (Directory.Exists(path))
+                return true;
+            return !string.IsNullOrWhiteSpace(fileExtension) &&
+                   File.Exists(path) &&
+                   path.EndsWith("." + fileExtension, StringComparison.OrdinalIgnoreCase);
+        }
+
+        string m_DeferredPath;
+        string m_DeferredPathKey;
+
         static string PathAbsToStorage(string path)
         {
             path = path.Replace('\\', '/');
@@ -120,10 +134,13 @@ namespace GaussianSplatting.Editor.Utils
             return path;
         }
 
-        bool CheckAndSetNewPath(ref string path, string nameKey, bool isFolder)
+        bool CheckAndSetNewPath(ref string path, string nameKey, bool isFolder, string optionalFileExtension = null)
         {
             path = PathAbsToStorage(path);
-            if (CheckPath(path, isFolder))
+            bool valid = optionalFileExtension != null
+                ? IsFolderOrFilePath(path, optionalFileExtension)
+                : CheckPath(path, isFolder);
+            if (valid)
             {
                 EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", path);
                 UpdatePreviousPaths(nameKey, path);
@@ -134,7 +151,27 @@ namespace GaussianSplatting.Editor.Utils
             return false;
         }
 
-        string PreviousPathsDropdown(Rect position, string value, string nameKey, bool isFolder)
+        void SetDeferredPath(string nameKey, string path)
+        {
+            m_DeferredPath = path;
+            m_DeferredPathKey = nameKey;
+            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", path);
+            UpdatePreviousPaths(nameKey, path);
+        }
+
+        bool TryConsumeDeferredPath(string nameKey, ref string value)
+        {
+            if (m_DeferredPath == null || m_DeferredPathKey != nameKey)
+                return false;
+
+            value = m_DeferredPath;
+            m_DeferredPath = null;
+            m_DeferredPathKey = null;
+            GUI.changed = true;
+            return true;
+        }
+
+        string PreviousPathsDropdown(Rect position, string value, string nameKey, bool isFolder, string optionalFileExtension = null)
         {
             PopulatePreviousPaths(nameKey);
 
@@ -151,7 +188,7 @@ namespace GaussianSplatting.Editor.Utils
             if (EditorGUI.EndChangeCheck() && parameterIndex < prevPaths.paths.Count)
             {
                 string newValue = prevPaths.paths[parameterIndex];
-                if (CheckAndSetNewPath(ref newValue, nameKey, isFolder))
+                if (CheckAndSetNewPath(ref newValue, nameKey, isFolder, optionalFileExtension))
                     value = newValue;
             }
             EditorGUI.indentLevel = oldIndent;
@@ -266,6 +303,125 @@ namespace GaussianSplatting.Editor.Utils
                     {
                         HandleUtility.Repaint();
                     }
+                    break;
+            }
+            return value;
+        }
+
+        // Folder picker that also accepts a single file with the given extension (e.g. sog).
+        public string FolderOrFilePathFieldGUI(
+            Rect position,
+            GUIContent label,
+            string value,
+            string fileExtension,
+            string nameKey)
+        {
+            s_StyleTextFieldText ??= new GUIStyle("TextFieldDropDownText");
+            s_StyleTextFieldDropdown ??= new GUIStyle("TextFieldDropdown");
+            TryConsumeDeferredPath(nameKey, ref value);
+
+            int controlId = GUIUtility.GetControlID(kPathFieldControlID, FocusType.Keyboard, position);
+            Rect fullRect = EditorGUI.PrefixLabel(position, controlId, label);
+            Rect textRect = new Rect(fullRect.x, fullRect.y, fullRect.width - s_StyleTextFieldDropdown.fixedWidth, fullRect.height);
+            Rect dropdownRect = new Rect(textRect.xMax, fullRect.y, s_StyleTextFieldDropdown.fixedWidth, fullRect.height);
+            Rect iconRect = new Rect(textRect.xMax - kIconSize, textRect.y, kIconSize, textRect.height);
+
+            value = PreviousPathsDropdown(dropdownRect, value, nameKey, isFolder: true, fileExtension);
+
+            string displayText = PathToDisplayString(value);
+            bool isDirectory = Directory.Exists(value);
+
+            Event evt = Event.current;
+            switch (evt.type)
+            {
+                case EventType.KeyDown:
+                    if (GUIUtility.keyboardControl == controlId)
+                    {
+                        if (evt.keyCode is KeyCode.Backspace or KeyCode.Delete)
+                        {
+                            value = null;
+                            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", "");
+                            GUI.changed = true;
+                            evt.Use();
+                        }
+                    }
+                    break;
+                case EventType.Repaint:
+                    s_StyleTextFieldText.Draw(textRect, new GUIContent(displayText), controlId, DragAndDrop.activeControlID == controlId);
+                    GUI.DrawTexture(iconRect, isDirectory ? s_FolderIcon : s_FileIcon, ScaleMode.ScaleToFit);
+                    break;
+                case EventType.MouseDown:
+                    if (evt.button != 0 || !GUI.enabled)
+                        break;
+
+                    if (textRect.Contains(evt.mousePosition))
+                    {
+                        if (iconRect.Contains(evt.mousePosition))
+                        {
+                            if (string.IsNullOrWhiteSpace(value))
+                                value = EditorPrefs.GetString($"{kLastPathPref}-{nameKey}");
+
+                            string openToPath = string.Empty;
+                            if (Directory.Exists(value))
+                                openToPath = value;
+                            else if (File.Exists(value))
+                                openToPath = Path.GetDirectoryName(value);
+
+                            string folderStart = openToPath;
+                            string fileStart = openToPath;
+                            var menu = new GenericMenu();
+                            menu.AddItem(new GUIContent("Select folder..."), false, () =>
+                            {
+                                string newPath = EditorUtility.OpenFolderPanel("Select folder", folderStart, "");
+                                if (!string.IsNullOrWhiteSpace(newPath) && Directory.Exists(newPath))
+                                    SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                            });
+                            menu.AddItem(new GUIContent($"Select .{fileExtension} file..."), false, () =>
+                            {
+                                string newPath = EditorUtility.OpenFilePanel($"Select .{fileExtension} file", fileStart, fileExtension);
+                                if (IsFolderOrFilePath(newPath, fileExtension))
+                                    SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                            });
+                            menu.ShowAsContext();
+                            evt.Use();
+                        }
+                        else if (File.Exists(value) || Directory.Exists(value))
+                        {
+                            EditorUtility.RevealInFinder(value);
+                        }
+                        GUIUtility.keyboardControl = controlId;
+                    }
+                    break;
+                case EventType.DragUpdated:
+                case EventType.DragPerform:
+                    if (textRect.Contains(evt.mousePosition) && GUI.enabled)
+                    {
+                        if (DragAndDrop.paths.Length > 0)
+                        {
+                            DragAndDrop.visualMode = DragAndDropVisualMode.Generic;
+                            string path = PathAbsToStorage(DragAndDrop.paths[0]);
+                            if (IsFolderOrFilePath(path, fileExtension))
+                            {
+                                if (evt.type == EventType.DragPerform)
+                                {
+                                    UpdatePreviousPaths(nameKey, path);
+                                    value = path;
+                                    GUI.changed = true;
+                                    DragAndDrop.AcceptDrag();
+                                    DragAndDrop.activeControlID = 0;
+                                }
+                                else
+                                    DragAndDrop.activeControlID = controlId;
+                            }
+                            else
+                                DragAndDrop.visualMode = DragAndDropVisualMode.Rejected;
+                            evt.Use();
+                        }
+                    }
+                    break;
+                case EventType.DragExited:
+                    if (GUI.enabled)
+                        HandleUtility.Repaint();
                     break;
             }
             return value;

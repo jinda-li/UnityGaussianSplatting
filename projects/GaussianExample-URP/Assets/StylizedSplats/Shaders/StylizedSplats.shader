@@ -38,6 +38,7 @@ float _StyleAlphaGamma;
 float _StyleRandomFlip;
 float _BaseSaturation;
 float _BaseLift;
+float _StylizedPreviewPainted;
 
 Texture2D _StylizedBrushTex;
 SamplerState sampler_StylizedBrushTex;
@@ -100,6 +101,8 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
             float paint = 0;
             if (_SplatPaintValid != 0)
                 paint = _SplatPaintProgress[instID];
+            if (_StylizedPreviewPainted != 0)
+                paint = 1; // editor preview: skip base saturation/lift entirely
             o.col.rgb = lerp(baseCol, o.col.rgb, saturate(paint));
 
             SplatData splat = LoadSplatData(instID);
