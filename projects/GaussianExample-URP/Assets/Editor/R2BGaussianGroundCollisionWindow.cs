@@ -126,7 +126,10 @@ namespace R2B.Editor.GaussianCollision
                 "(large point clouds can use a lot of memory/CPU). Use the ⑥ Estimate section below to judge " +
                 "whether your settings are reasonable before running Generate. Generate runs the CLI once, " +
                 "saves a mesh asset, and creates/updates a 'CollisionProxy' child (with MeshFilter + MeshCollider " +
-                "already set up) under the Renderer — no manual scene setup needed.",
+                "already set up) under the Renderer — no manual scene setup needed.\n\n" +
+                "To hand-tune a result: edit the generated .collision.glb in Blender (as-is, no rotation fixes), " +
+                "export as a NEW .glb, then click 'Apply Edited GLB' — do NOT import Blender exports into Unity " +
+                "directly, they will come in rotated/offset because they skip this tool's coordinate conversion.",
                 MessageType.None);
 
             DrawCliRow();
@@ -175,6 +178,13 @@ namespace R2B.Editor.GaussianCollision
                         EditorUtility.RevealInFinder(Path.GetFullPath(kOutputFolder));
                     using (new EditorGUI.DisabledScope(m_TargetRenderer == null))
                     {
+                        if (GUILayout.Button(Tip("Apply Edited GLB",
+                                "Load a .glb you edited in Blender, run it through the same engine→Unity coordinate " +
+                                "transform as Generate, save it as a mesh asset and wire it to CollisionProxy. " +
+                                "Workflow: open the generated .collision.glb in Blender (no rotation fixes needed), " +
+                                "edit, join everything into ONE mesh (Ctrl+J), then File > Export > glTF 2.0 with " +
+                                "'+Y Up' enabled (the default) under a new name like ..._edited.glb.")))
+                            ApplyEditedGlb();
                         if (GUILayout.Button("Select Collision Proxy"))
                             SelectExistingProxy();
                     }
@@ -686,26 +696,61 @@ namespace R2B.Editor.GaussianCollision
             if (!File.Exists(glbPath))
                 throw new InvalidOperationException($"Missing: {glbPath}");
 
+            ApplyGlbToProxy(glbPath, $"{assetBase}_collision");
+        }
+
+        void ApplyEditedGlb()
+        {
+            string startDir = AssetDatabase.IsValidFolder(kOutputFolder)
+                ? Path.GetFullPath(kOutputFolder)
+                : Application.dataPath;
+            string glbPath = EditorUtility.OpenFilePanel("Select edited collision GLB", startDir, "glb");
+            if (string.IsNullOrEmpty(glbPath))
+                return;
+
+            try
+            {
+                EnsureOutputFolder();
+                string assetName = Path.GetFileNameWithoutExtension(glbPath);
+                if (assetName.EndsWith(".collision", StringComparison.OrdinalIgnoreCase))
+                    assetName = assetName[..^".collision".Length];
+                ApplyGlbToProxy(glbPath, assetName);
+            }
+            catch (Exception ex)
+            {
+                m_StatusMessage = ex.Message;
+                m_StatusType = MessageType.Error;
+                Debug.LogException(ex);
+            }
+
+            Repaint();
+        }
+
+        void ApplyGlbToProxy(string glbPath, string assetName)
+        {
             var mesh = GlbMeshLoader.LoadFirstMesh(glbPath);
             if (mesh.vertexCount == 0 || mesh.triangles.Length == 0)
             {
                 DestroyImmediate(mesh);
                 throw new InvalidOperationException(
-                    "Generated mesh is empty — Region/Seed/Voxel Opacity likely excluded all splats. " +
-                    "Widen the Region, check Seed is inside the splat cloud, or lower Voxel Opacity.");
+                    "Mesh is empty — for Generate this usually means Region/Seed/Voxel Opacity excluded all splats; " +
+                    "for an edited GLB, make sure everything is joined into one mesh (Ctrl+J in Blender) before export.");
             }
             GaussianSplatCoords.TransformMeshEngineToFile(mesh);
 
             if (m_TargetRenderer == null)
                 throw new InvalidOperationException("Renderer lost.");
 
-            string assetPath = AssetDatabase.GenerateUniqueAssetPath($"{kOutputFolder}/{assetBase}_collision.asset");
+            string assetPath = AssetDatabase.GenerateUniqueAssetPath($"{kOutputFolder}/{assetName}.asset");
             AssetDatabase.CreateAsset(mesh, assetPath);
             AssetDatabase.SaveAssets();
 
             var proxy = GetOrCreateProxy(m_TargetRenderer);
-            var mf = proxy.GetComponent<MeshFilter>() ?? proxy.AddComponent<MeshFilter>();
-            var mc = proxy.GetComponent<MeshCollider>() ?? proxy.AddComponent<MeshCollider>();
+            // ?? can't see Unity's fake-null, so "GetComponent ?? AddComponent" never adds.
+            if (!proxy.TryGetComponent(out MeshFilter mf))
+                mf = proxy.AddComponent<MeshFilter>();
+            if (!proxy.TryGetComponent(out MeshCollider mc))
+                mc = proxy.AddComponent<MeshCollider>();
             mf.sharedMesh = mesh;
             mc.sharedMesh = mesh;
             mc.convex = false;

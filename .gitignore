@@ -25,3 +25,9 @@
 /projects/**/UserSettings/*
 /projects/**/obj/*
 *.sln.DotSettings.user
+
+# Build artifacts
+*.apk
+/projects/**/.utmp/
+/projects/**/Recordings/
+*_BurstDebugInformation_DoNotShip/
