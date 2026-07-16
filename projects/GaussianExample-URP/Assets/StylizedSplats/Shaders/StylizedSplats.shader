@@ -46,6 +46,26 @@ SamplerState sampler_StylizedBrushTex;
 StructuredBuffer<float> _SplatPaintProgress;
 uint _SplatPaintValid;
 
+// world-reveal globals (set by SplatWorldReveal.cs)
+float  _RevealEnable;
+float3 _RevealCenter;
+float  _RevealRadius;
+float  _RevealEdgeWidth;
+float  _RevealSizeOvershoot;
+float  _RevealFlashIntensity;
+float  _RevealRippleAmplitude;
+float  _RevealRippleFrequency;
+float  _RevealRippleSpeed;
+float  _RevealBobAmplitude;
+half3  _RevealUnrealTint;
+float  _RevealUnrealSaturation;
+half3  _RevealEdgeColor;       // HDR-capable (values may exceed 1)
+float  _RevealVanguardDistance;
+float  _RevealFireflyFraction;
+float  _RevealFireflySize;     // pixels
+float  _RevealFireflyTwinkleSpeed;
+half3  _RevealFireflyColor;    // HDR-capable
+
 struct v2f
 {
     half4 col : COLOR0;
@@ -87,6 +107,11 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
         o.col.b = f16tof32(view.color.y >> 16);
         o.col.a = f16tof32(view.color.y);
 
+        // reveal may rewrite geometry inputs without touching the raw view data
+        float4 centerClipPos2 = centerClipPos;
+        float2 axis1 = view.axis1, axis2 = view.axis2;
+        bool revealDiscard = false;
+
         // _StylizedEnable == 0 must stay pixel-identical to the stock shader,
         // so all of the new behavior is gated behind it.
         float styleAmount = 1; // 1 = full gaussian (stock look)
@@ -110,6 +135,67 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
             float worldSize = max(max(splat.scale.x, splat.scale.y), splat.scale.z) * worldScale;
             styleAmount = SmoothStepEdge(_StyleSizeMin, _StyleSizeMax, worldSize);
         }
+
+        // world-materialization reveal: expanding wavefront from _RevealCenter.
+        // Lives outside the _StylizedEnable gate so it works in both modes.
+        if (_RevealEnable != 0)
+        {
+            float3 worldPos = mul(unity_ObjectToWorld, float4(LoadSplatPos(instID), 1)).xyz;
+            float  d = distance(worldPos, _RevealCenter);
+            float  p = saturate((_RevealRadius - d) / max(_RevealEdgeWidth, 1e-4));
+            float  hash = HashInstance(instID);
+
+            if (p >= 1)
+            {
+                // fully revealed: untouched -> bit-exact original
+            }
+            else if (p <= 0)
+            {
+                // ahead of the wavefront: hidden, except vanguard fireflies
+                bool firefly = (d < _RevealRadius + _RevealVanguardDistance) &&
+                               (hash < _RevealFireflyFraction);
+                if (!firefly)
+                {
+                    revealDiscard = true;
+                }
+                else
+                {
+                    axis1 = float2(_RevealFireflySize, 0);
+                    axis2 = float2(0, _RevealFireflySize);
+                    float tw = 0.5 + 0.5 * sin(_Time.y * _RevealFireflyTwinkleSpeed * (0.7 + 0.6 * hash)
+                                               + hash * 6.2831853);
+                    o.col.rgb = _RevealFireflyColor;
+                    o.col.a   = tw * tw;
+                    styleAmount = 1; // force gaussian path, never a warped brush stroke
+                }
+            }
+            else
+            {
+                // birth animation, 0 < p < 1
+                float sizeScale = p * (1 + _RevealSizeOvershoot * sin(p * 3.14159265));
+                axis1 *= sizeScale;
+                axis2 *= sizeScale;
+
+                float edgeW = sin(p * 3.14159265); // peaks mid-birth, 0 at both ends
+                half  lum = dot(o.col.rgb, half3(0.299h, 0.587h, 0.114h));
+                half3 unreal = lerp(lum * _RevealUnrealTint, o.col.rgb, _RevealUnrealSaturation);
+                o.col.rgb = lerp(unreal, o.col.rgb, p);
+                o.col.rgb += _RevealEdgeColor * (edgeW * _RevealFlashIntensity);
+                o.col.a *= p;
+
+                float decay = 1 - p;
+                float wavePhase = d * _RevealRippleFrequency - _Time.y * _RevealRippleSpeed
+                                + hash * 6.2831853;
+                float3 radialDir = (worldPos - _RevealCenter) / max(d, 1e-4);
+                float3 offset = radialDir * (sin(wavePhase) * _RevealRippleAmplitude * decay)
+                              + float3(0, 1, 0) * (sin(_Time.y * _RevealRippleSpeed * 0.7
+                                                     + hash * 6.2831853) * _RevealBobAmplitude * decay);
+                centerClipPos2 = mul(UNITY_MATRIX_VP, float4(worldPos + offset, 1));
+                if (centerClipPos2.w <= 0)
+                    revealDiscard = true;
+            }
+        }
+
         o.style.x = styleAmount;
         o.style.y = o.col.a; // opacity
         o.style.z = (_StyleRandomFlip != 0 && HashInstance(instID) > 0.5) ? -1.0 : 1.0;
@@ -120,9 +206,9 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
 
         o.pos = quadPos;
 
-        float2 deltaScreenPos = (quadPos.x * view.axis1 + quadPos.y * view.axis2) * 2 / _ScreenParams.xy;
-        o.vertex = centerClipPos;
-        o.vertex.xy += deltaScreenPos * centerClipPos.w;
+        float2 deltaScreenPos = (quadPos.x * axis1 + quadPos.y * axis2) * 2 / _ScreenParams.xy;
+        o.vertex = centerClipPos2;
+        o.vertex.xy += deltaScreenPos * centerClipPos2.w;
 
         // is this splat selected?
         if (_SplatBitsValid)
@@ -135,6 +221,9 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
                 o.col.a = -1;
             }
         }
+
+        if (revealDiscard)
+            o.vertex = asfloat(0x7fc00000); // NaN discards the primitive
     }
     FlipProjectionIfBackbuffer(o.vertex);
     return o;
