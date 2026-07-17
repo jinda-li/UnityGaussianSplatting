@@ -13,6 +13,7 @@ namespace GaussianSplatting.Runtime
     class GaussianSplatHDRPPass : CustomPass
     {
         RTHandle m_RenderTarget;
+        RTHandle m_RevealTarget;
 
         // It can be used to configure render targets and their clear state. Also to create temporary render target textures.
         // When empty this render pass will render to the active camera render target.
@@ -24,6 +25,10 @@ namespace GaussianSplatting.Runtime
                 colorFormat: GraphicsFormat.R16G16B16A16_SFloat, useDynamicScale: true,
                 depthBufferBits: DepthBits.None, msaaSamples: MSAASamples.None,
                 filterMode: FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_GaussianSplatRT");
+            m_RevealTarget = RTHandles.Alloc(Vector2.one,
+                colorFormat: GraphicsFormat.R16_SFloat, useDynamicScale: true,
+                depthBufferBits: DepthBits.None, msaaSamples: MSAASamples.None,
+                filterMode: FilterMode.Point, wrapMode: TextureWrapMode.Clamp, name: "_GaussianSplatRevealRT");
         }
 
         protected override void Execute(CustomPassContext ctx)
@@ -35,8 +40,20 @@ namespace GaussianSplatting.Runtime
                 return;
 
             ctx.cmd.SetGlobalTexture(m_RenderTarget.name, m_RenderTarget.nameID);
-            CoreUtils.SetRenderTarget(ctx.cmd, m_RenderTarget, ctx.cameraDepthBuffer, ClearFlag.Color,
-                new Color(0, 0, 0, 0));
+
+            if (system.activeUsesOIT)
+            {
+                ctx.cmd.SetGlobalTexture(m_RevealTarget.name, m_RevealTarget.nameID);
+                ctx.cmd.SetRenderTarget(
+                    new RenderTargetIdentifier[] { m_RenderTarget.nameID, m_RevealTarget.nameID },
+                    ctx.cameraDepthBuffer);
+                ctx.cmd.ClearRenderTarget(RTClearFlags.Color, Color.clear, 0, 0);
+            }
+            else
+            {
+                CoreUtils.SetRenderTarget(ctx.cmd, m_RenderTarget, ctx.cameraDepthBuffer, ClearFlag.Color,
+                    new Color(0, 0, 0, 0));
+            }
 
             // add sorting, view calc and drawing commands for each splat object
             Material matComposite =
@@ -45,13 +62,14 @@ namespace GaussianSplatting.Runtime
             // compose
             ctx.cmd.BeginSample(GaussianSplatRenderSystem.s_ProfCompose);
             CoreUtils.SetRenderTarget(ctx.cmd, ctx.cameraColorBuffer, ClearFlag.None);
-            CoreUtils.DrawFullScreen(ctx.cmd, matComposite, ctx.propertyBlock, shaderPassId: 0);
+            CoreUtils.DrawFullScreen(ctx.cmd, matComposite, ctx.propertyBlock, shaderPassId: system.compositePassIndex);
             ctx.cmd.EndSample(GaussianSplatRenderSystem.s_ProfCompose);
         }
 
         protected override void Cleanup()
         {
             m_RenderTarget.Release();
+            m_RevealTarget?.Release();
         }
     }
 }

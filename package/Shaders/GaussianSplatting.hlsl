@@ -612,6 +612,9 @@ struct SplatViewData
     float4 pos;
     float2 axis1, axis2;
     uint2 color; // 4xFP16
+    // Mobile-GS OIT weight w = φ² + φ/d² + exp(s_max/d); Phase 1 uses φ=0 → exp(s_max/d)
+    float oitWeight;
+    float _pad;
 };
 
 // If we are rendering into backbuffer directly (e.g. HDR off, no postprocessing),

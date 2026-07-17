@@ -31,6 +31,10 @@ namespace GaussianSplatting.Runtime
 
         CommandBuffer m_CommandBuffer;
 
+        /// <summary>True when any active splat this frame uses Mobile-GS OIT (needs reveal RT).</summary>
+        public bool activeUsesOIT { get; private set; }
+        public int compositePassIndex => activeUsesOIT ? 1 : 0;
+
         public void RegisterSplat(GaussianSplatRenderer r)
         {
             if (m_Splats.Count == 0)
@@ -84,7 +88,10 @@ namespace GaussianSplatting.Runtime
                 m_ActiveSplats.Add((kvp.Key, kvp.Value));
             }
             if (m_ActiveSplats.Count == 0)
+            {
+                activeUsesOIT = false;
                 return false;
+            }
 
             // sort them by order and depth from camera
             var camTr = cam.transform;
@@ -101,6 +108,16 @@ namespace GaussianSplatting.Runtime
                 return posA.z.CompareTo(posB.z);
             });
 
+            activeUsesOIT = false;
+            foreach (var s in m_ActiveSplats)
+            {
+                if (s.Item1.m_UseOIT && s.Item1.m_RenderMode == GaussianSplatRenderer.RenderMode.Splats)
+                {
+                    activeUsesOIT = true;
+                    break;
+                }
+            }
+
             return true;
         }
 
@@ -115,15 +132,19 @@ namespace GaussianSplatting.Runtime
                 matComposite = gs.m_MatComposite;
                 var mpb = kvp.Item2;
 
-                // sort
+                // sort (skipped for Mobile-GS OIT — accumulation is order-independent)
                 var matrix = gs.transform.localToWorldMatrix;
-                // in VR multi-pass stereo, both eye passes happen within the same frame; the eyes are
-                // close enough together that one sort result can be shared between them
-                bool sortedThisFrame = gs.m_VRSortOnceBothEyes && cam.stereoEnabled && gs.m_LastSortedFrame == Time.frameCount;
-                if (gs.m_FrameCounter % gs.m_SortNthFrame == 0 && !sortedThisFrame)
+                bool useOIT = gs.m_UseOIT && gs.m_RenderMode == GaussianSplatRenderer.RenderMode.Splats;
+                if (!useOIT)
                 {
-                    gs.SortPoints(cmb, cam, matrix);
-                    gs.m_LastSortedFrame = Time.frameCount;
+                    // in VR multi-pass stereo, both eye passes happen within the same frame; the eyes are
+                    // close enough together that one sort result can be shared between them
+                    bool sortedThisFrame = gs.m_VRSortOnceBothEyes && cam.stereoEnabled && gs.m_LastSortedFrame == Time.frameCount;
+                    if (gs.m_FrameCounter % gs.m_SortNthFrame == 0 && !sortedThisFrame)
+                    {
+                        gs.SortPoints(cmb, cam, matrix);
+                        gs.m_LastSortedFrame = Time.frameCount;
+                    }
                 }
                 ++gs.m_FrameCounter;
 
@@ -158,17 +179,25 @@ namespace GaussianSplatting.Runtime
                 gs.CalcViewData(cmb, cam);
                 cmb.EndSample(s_ProfCalcView);
 
-                // draw
+                // draw — pass 0 sorted alpha, pass 1 Mobile-GS OIT
                 int indexCount = 6;
                 int instanceCount = gs.splatCount;
                 MeshTopology topology = MeshTopology.Triangles;
+                int shaderPass = useOIT ? 1 : 0;
+                if (useOIT && displayMat.passCount <= 1)
+                {
+                    Debug.LogError(
+                        $"GaussianSplatRenderer '{gs.name}': Use OIT requires shader pass 1, but '{displayMat.shader.name}' only has {displayMat.passCount}. Skipping draw.",
+                        gs);
+                    continue;
+                }
                 if (gs.m_RenderMode is GaussianSplatRenderer.RenderMode.DebugBoxes or GaussianSplatRenderer.RenderMode.DebugChunkBounds)
                     indexCount = 36;
                 if (gs.m_RenderMode == GaussianSplatRenderer.RenderMode.DebugChunkBounds)
                     instanceCount = gs.m_GpuChunksValid ? gs.m_GpuChunks.count : 0;
 
                 cmb.BeginSample(s_ProfDraw);
-                cmb.DrawProcedural(gs.m_GpuIndexBuffer, matrix, displayMat, 0, topology, indexCount, instanceCount, mpb);
+                cmb.DrawProcedural(gs.m_GpuIndexBuffer, matrix, displayMat, shaderPass, topology, indexCount, instanceCount, mpb);
                 cmb.EndSample(s_ProfDraw);
             }
             return matComposite;
@@ -197,9 +226,27 @@ namespace GaussianSplatting.Runtime
 
             InitialClearCmdBuffer(cam);
 
+            // OIT uses dual MRT; keep R16 like the sorted path to avoid a large bandwidth regression.
+            // (R32 matches CUDA float accumulators more closely but is much heavier on mobile/VR.)
             m_CommandBuffer.GetTemporaryRT(GaussianSplatRenderer.Props.GaussianSplatRT, -1, -1, 0, FilterMode.Point, GraphicsFormat.R16G16B16A16_SFloat);
-            m_CommandBuffer.SetRenderTarget(GaussianSplatRenderer.Props.GaussianSplatRT, BuiltinRenderTextureType.CurrentActive);
-            m_CommandBuffer.ClearRenderTarget(RTClearFlags.Color, new Color(0, 0, 0, 0), 0, 0);
+            if (activeUsesOIT)
+            {
+                m_CommandBuffer.GetTemporaryRT(GaussianSplatRenderer.Props.GaussianSplatRevealRT, -1, -1, 0, FilterMode.Point, GraphicsFormat.R16_SFloat);
+                m_CommandBuffer.SetRenderTarget(
+                    new RenderTargetIdentifier[]
+                    {
+                        GaussianSplatRenderer.Props.GaussianSplatRT,
+                        GaussianSplatRenderer.Props.GaussianSplatRevealRT
+                    },
+                    BuiltinRenderTextureType.CurrentActive);
+                m_CommandBuffer.ClearRenderTarget(RTClearFlags.Color, new Color(0, 0, 0, 0), 0, 0);
+                m_CommandBuffer.SetGlobalTexture(GaussianSplatRenderer.Props.GaussianSplatRevealRT, GaussianSplatRenderer.Props.GaussianSplatRevealRT);
+            }
+            else
+            {
+                m_CommandBuffer.SetRenderTarget(GaussianSplatRenderer.Props.GaussianSplatRT, BuiltinRenderTextureType.CurrentActive);
+                m_CommandBuffer.ClearRenderTarget(RTClearFlags.Color, new Color(0, 0, 0, 0), 0, 0);
+            }
 
             // We only need this to determine whether we're rendering into backbuffer or not. However, detection this
             // way only works in BiRP so only do it here.
@@ -211,9 +258,11 @@ namespace GaussianSplatting.Runtime
             // compose
             m_CommandBuffer.BeginSample(s_ProfCompose);
             m_CommandBuffer.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
-            m_CommandBuffer.DrawProcedural(Matrix4x4.identity, matComposite, 0, MeshTopology.Triangles, 3, 1);
+            m_CommandBuffer.DrawProcedural(Matrix4x4.identity, matComposite, compositePassIndex, MeshTopology.Triangles, 3, 1);
             m_CommandBuffer.EndSample(s_ProfCompose);
             m_CommandBuffer.ReleaseTemporaryRT(GaussianSplatRenderer.Props.GaussianSplatRT);
+            if (activeUsesOIT)
+                m_CommandBuffer.ReleaseTemporaryRT(GaussianSplatRenderer.Props.GaussianSplatRevealRT);
         }
     }
 
@@ -243,6 +292,8 @@ namespace GaussianSplatting.Runtime
         public bool m_SHOnly;
         [Range(1,30)] [Tooltip("Sort splats only every N frames")]
         public int m_SortNthFrame = 1;
+        [Tooltip("Mobile-GS Phase 1: depth-aware order-independent transparency. Skips GPU sort and uses weighted OIT compositing (φ=0). Expect transparency artifacts on un-finetuned assets.")]
+        public bool m_UseOIT;
 
         public RenderMode m_RenderMode = RenderMode.Splats;
         [Range(1.0f,15.0f)] public float m_PointDisplaySize = 3.0f;
@@ -346,6 +397,7 @@ namespace GaussianSplatting.Runtime
             public static readonly int DisplayIndex = Shader.PropertyToID("_DisplayIndex");
             public static readonly int DisplayChunks = Shader.PropertyToID("_DisplayChunks");
             public static readonly int GaussianSplatRT = Shader.PropertyToID("_GaussianSplatRT");
+            public static readonly int GaussianSplatRevealRT = Shader.PropertyToID("_GaussianSplatRevealRT");
             public static readonly int SplatSortKeys = Shader.PropertyToID("_SplatSortKeys");
             public static readonly int SplatSortDistances = Shader.PropertyToID("_SplatSortDistances");
             public static readonly int SrcBuffer = Shader.PropertyToID("_SrcBuffer");
@@ -405,7 +457,8 @@ namespace GaussianSplatting.Runtime
             m_Asset.colorData != null;
         public bool HasValidRenderSetup => m_GpuPosData != null && m_GpuOtherData != null && m_GpuChunks != null;
 
-        const int kGpuViewDataSize = 40;
+        // float4 + float2 + float2 + uint2 + float + float pad = 48 (was 40 before OIT weight)
+        const int kGpuViewDataSize = 48;
 
         void CreateResourcesForAsset()
         {

@@ -3177,6 +3177,75 @@ Transform:
   - {fileID: 1839225567}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1088755391
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1088755393}
+  - component: {fileID: 1088755392}
+  m_Layer: 0
+  m_Name: OITModeToggle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1088755392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088755391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a7c4e2f91b3846d0a5e8f3c2d1b0a9e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StylizedSplats.OITModeToggle
+  targets:
+  - {fileID: 1609192434}
+  leftXAction:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Left X
+      m_Type: 1
+      m_ExpectedControlType: Button
+      m_Id: 7d2c8e1a-4b5f-4c6d-9e0a-1f2b3c4d5e6f
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 8e3d9f2b-5c6a-4d7e-a1b0-2c3d4e5f6a7b
+        m_Path: <XRController>{LeftHand}/{PrimaryButton}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Left X
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
+  keyboardFallback: 47
+  logToConsole: 1
+  showHud: 1
+--- !u!4 &1088755393
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1088755391}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1091805913
 GameObject:
   m_ObjectHideFlags: 0
@@ -4231,6 +4300,7 @@ MonoBehaviour:
   m_SHOrder: 0
   m_SHOnly: 0
   m_SortNthFrame: 1
+  m_UseOIT: 0
   m_RenderMode: 0
   m_PointDisplaySize: 3
   m_Cutouts:
@@ -5484,3 +5554,4 @@ SceneRoots:
   - {fileID: 2102748585}
   - {fileID: 62661263}
   - {fileID: 1051718620}
+  - {fileID: 1088755393}

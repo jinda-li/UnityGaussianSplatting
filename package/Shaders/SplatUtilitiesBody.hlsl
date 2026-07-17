@@ -210,6 +210,14 @@ void CSCalcViewData (uint3 id : SV_DispatchThreadID)
         col.a = min(splat.opacity * opacityScale, 65000);
         view.color.x = (f32tof16(col.r) << 16) | f32tof16(col.g);
         view.color.y = (f32tof16(col.b) << 16) | f32tof16(col.a);
+
+        // Mobile-GS depth-aware OIT weight (φ=0 for Phase 1):
+        // w = exp(s_max / d), d = positive view-space depth
+        float3 viewPos = mul(_MatrixMV, float4(splat.pos, 1)).xyz;
+        float d = max(-viewPos.z, 1e-6);
+        float3 scaled = boxSize * splatScale;
+        float sMax = max(scaled.x, max(scaled.y, scaled.z));
+        view.oitWeight = exp(sMax / d);
     }
     
     _SplatViewData[idx] = view;

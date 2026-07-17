@@ -8,6 +8,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Garden.unity
     guid: f5865d17a2262674da93bbffeba3c9a4
+  - enabled: 1
+    path: Assets/Forest.unity
+    guid: 36934c1e75cb24745a91b0a1124a3179
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 922cac0bb329bbf46b30484de063e46f, type: 2}

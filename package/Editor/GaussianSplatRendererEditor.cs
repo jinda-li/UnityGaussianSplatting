@@ -27,6 +27,7 @@ namespace GaussianSplatting.Editor
         SerializedProperty m_PropSHOrder;
         SerializedProperty m_PropSHOnly;
         SerializedProperty m_PropSortNthFrame;
+        SerializedProperty m_PropUseOIT;
         SerializedProperty m_PropRenderMode;
         SerializedProperty m_PropPointDisplaySize;
         SerializedProperty m_PropCutouts;
@@ -70,6 +71,7 @@ namespace GaussianSplatting.Editor
             m_PropSHOrder = serializedObject.FindProperty("m_SHOrder");
             m_PropSHOnly = serializedObject.FindProperty("m_SHOnly");
             m_PropSortNthFrame = serializedObject.FindProperty("m_SortNthFrame");
+            m_PropUseOIT = serializedObject.FindProperty("m_UseOIT");
             m_PropRenderMode = serializedObject.FindProperty("m_RenderMode");
             m_PropPointDisplaySize = serializedObject.FindProperty("m_PointDisplaySize");
             m_PropCutouts = serializedObject.FindProperty("m_Cutouts");
@@ -117,6 +119,11 @@ namespace GaussianSplatting.Editor
             EditorGUILayout.PropertyField(m_PropSHOrder);
             EditorGUILayout.PropertyField(m_PropSHOnly);
             EditorGUILayout.PropertyField(m_PropSortNthFrame);
+            EditorGUILayout.PropertyField(m_PropUseOIT);
+            if (m_PropUseOIT.boolValue)
+                EditorGUILayout.HelpBox(
+                    "OIT skips GPU sorting (Mobile-GS Phase 1, φ=0). On desktop/Editor, FPS often drops because dual-MRT additive overdraw costs more than radix sort; the win is expected mainly on Quest where sorting is the bottleneck. Expect transparency artifacts on assets not finetuned for OIT.",
+                    MessageType.Info);
             EditorGUILayout.PropertyField(m_PropSortMethod);
             EditorGUILayout.PropertyField(m_PropVRSortOnceBothEyes);
 
