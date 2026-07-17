@@ -1,6 +1,10 @@
 # 3DGS-MCMC 400k 重训练计划（2026-07-17）
 
-目标：把 Garden 场景的高斯点数压到 **~400k**，在 Quest 3 上跑到可用帧率，视觉质量尽量接近原版。
+状态：**当前主线（Mobile-GS Phase 1 结案后优先执行）**
+
+目标：把 Botanical Garden 压成小规模 3DGS（**~400k** 主档 / **~200k** 保险档），在现有 Unity 路径上试 Quest 3 可用帧率，视觉质量尽量接近原版。
+
+关联：[Mobile-GS OIT 计划](../../../../docs/mobile-gs-oit-plan.md) — Phase 1 结论：Unity 帧率过低、overdraw 严重、无法复刻论文 Vulkan tile-based 渲染器、瓶颈不在排序 → **暂缓 Phase 2，先做本计划减点**。
 
 ## 背景（当日调试结论）
 
@@ -8,7 +12,8 @@
 - Profiler 实锤瓶颈：`TimeUpdate.WaitForLastPresentationAndUpdateTime` 占 94%，CPU 全程空等 GPU
   → 纯 GPU 瓶颈，根源是 splat 半透明混合的 overdraw（`ZWrite Off` + `Blend OneMinusDstAlpha One`
   无法 early-Z 剔除）。切 `DebugPoints`（不透明 + ZWrite On）立即流畅，验证了这一点。
-- 结论：靠"更聪明地减点"而非随机抽稀。随机抽稀丢的是均匀采样，重要性驱动的方法同点数画质高得多。
+- Mobile-GS OIT Phase 1：在 Unity 硬件 quad 路径上开 OIT 未提速（PC/Quest 均更慢或打平）；Sort 只占 PC ~1.5 ms。
+- 结论：靠"更聪明地减点"而非随机抽稀 / 而非换 OIT 混合。随机抽稀丢的是均匀采样，重要性驱动（MCMC `cap_max`）同预算画质高得多。
 
 ## 数据
 
