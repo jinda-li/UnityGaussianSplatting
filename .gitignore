@@ -31,3 +31,7 @@
 /projects/**/.utmp/
 /projects/**/Recordings/
 *_BurstDebugInformation_DoNotShip/
+
+# Device/adb log dumps
+quest_log.txt
+quest_app_log.txt
