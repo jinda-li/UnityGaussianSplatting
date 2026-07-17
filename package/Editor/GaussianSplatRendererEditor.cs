@@ -35,6 +35,9 @@ namespace GaussianSplatting.Editor
         SerializedProperty m_PropShaderDebugPoints;
         SerializedProperty m_PropShaderDebugBoxes;
         SerializedProperty m_PropCSSplatUtilities;
+        SerializedProperty m_PropCSSplatUtilitiesFfx;
+        SerializedProperty m_PropSortMethod;
+        SerializedProperty m_PropVRSortOnceBothEyes;
 
         bool m_ResourcesExpanded = false;
         int m_CameraIndex = 0;
@@ -75,6 +78,9 @@ namespace GaussianSplatting.Editor
             m_PropShaderDebugPoints = serializedObject.FindProperty("m_ShaderDebugPoints");
             m_PropShaderDebugBoxes = serializedObject.FindProperty("m_ShaderDebugBoxes");
             m_PropCSSplatUtilities = serializedObject.FindProperty("m_CSSplatUtilities");
+            m_PropCSSplatUtilitiesFfx = serializedObject.FindProperty("m_CSSplatUtilitiesFfx");
+            m_PropSortMethod = serializedObject.FindProperty("m_SortMethod");
+            m_PropVRSortOnceBothEyes = serializedObject.FindProperty("m_VRSortOnceBothEyes");
 
             s_AllEditors.Add(this);
         }
@@ -111,6 +117,8 @@ namespace GaussianSplatting.Editor
             EditorGUILayout.PropertyField(m_PropSHOrder);
             EditorGUILayout.PropertyField(m_PropSHOnly);
             EditorGUILayout.PropertyField(m_PropSortNthFrame);
+            EditorGUILayout.PropertyField(m_PropSortMethod);
+            EditorGUILayout.PropertyField(m_PropVRSortOnceBothEyes);
 
             EditorGUILayout.Space();
             GUILayout.Label("Debugging Tweaks", EditorStyles.boldLabel);
@@ -127,6 +135,7 @@ namespace GaussianSplatting.Editor
                 EditorGUILayout.PropertyField(m_PropShaderDebugPoints);
                 EditorGUILayout.PropertyField(m_PropShaderDebugBoxes);
                 EditorGUILayout.PropertyField(m_PropCSSplatUtilities);
+                EditorGUILayout.PropertyField(m_PropCSSplatUtilitiesFfx);
             }
             bool validAndEnabled = gs && gs.enabled && gs.gameObject.activeInHierarchy && gs.HasValidAsset;
             if (validAndEnabled && !gs.HasValidRenderSetup)

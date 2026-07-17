@@ -195,7 +195,8 @@ namespace R2B.Editor.GaussianCollision
                 new GUIContent(outputLabel),
                 m_OutputPath,
                 outputExtension,
-                outputKey);
+                outputKey,
+                saveDialog: m_OutputMode == SogToPlyOutputMode.MergedSinglePly);
 
             if (EditorGUI.EndChangeCheck())
             {

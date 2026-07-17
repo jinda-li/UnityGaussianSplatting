@@ -4228,7 +4228,7 @@ MonoBehaviour:
   m_RenderOrder: 0
   m_SplatScale: 1
   m_OpacityScale: 1
-  m_SHOrder: 3
+  m_SHOrder: 0
   m_SHOnly: 0
   m_SortNthFrame: 1
   m_RenderMode: 0
@@ -4240,6 +4240,9 @@ MonoBehaviour:
   m_ShaderDebugPoints: {fileID: 4800000, guid: b44409fc67214394f8f47e4e2648425e, type: 3}
   m_ShaderDebugBoxes: {fileID: 4800000, guid: 4006f2680fd7c8b4cbcb881454c782be, type: 3}
   m_CSSplatUtilities: {fileID: 7200000, guid: ec84f78b836bd4f96a105d6b804f08bd, type: 3}
+  m_CSSplatUtilitiesFfx: {fileID: 7200000, guid: 03bca3c792074c9ab911e04808cbef33, type: 3}
+  m_SortMethod: 0
+  m_VRSortOnceBothEyes: 1
 --- !u!4 &1609192435
 Transform:
   m_ObjectHideFlags: 0

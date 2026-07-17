@@ -197,7 +197,7 @@ namespace GaussianSplatting.Editor.Utils
         }
 
         // null extension picks folders
-        public string PathFieldGUI(Rect position, GUIContent label, string value, string extension, string nameKey)
+        public string PathFieldGUI(Rect position, GUIContent label, string value, string extension, string nameKey, bool saveDialog = false)
         {
             s_StyleTextFieldText ??= new GUIStyle("TextFieldDropDownText");
             s_StyleTextFieldDropdown ??= new GUIStyle("TextFieldDropdown");
@@ -250,13 +250,36 @@ namespace GaussianSplatting.Editor.Utils
                                     openToPath = value;
                                 newPath = EditorUtility.OpenFolderPanel("Select folder", openToPath, "");
                             }
+                            else if (saveDialog)
+                            {
+                                string defaultName = string.Empty;
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    openToPath = Path.GetDirectoryName(Path.GetFullPath(value));
+                                    defaultName = Path.GetFileName(value);
+                                }
+                                newPath = EditorUtility.SaveFilePanel("Save file", openToPath, defaultName, extension);
+                            }
                             else
                             {
                                 if (File.Exists(value))
                                     openToPath = Path.GetDirectoryName(value);
                                 newPath = EditorUtility.OpenFilePanel("Select file", openToPath, extension);
                             }
-                            if (CheckAndSetNewPath(ref newPath, nameKey, isFolder))
+
+                            if (saveDialog && !isFolder)
+                            {
+                                if (!string.IsNullOrWhiteSpace(newPath))
+                                {
+                                    newPath = PathAbsToStorage(newPath);
+                                    EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", newPath);
+                                    UpdatePreviousPaths(nameKey, newPath);
+                                    value = newPath;
+                                    GUI.changed = true;
+                                    evt.Use();
+                                }
+                            }
+                            else if (CheckAndSetNewPath(ref newPath, nameKey, isFolder))
                             {
                                 value = newPath;
                                 GUI.changed = true;

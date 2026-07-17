@@ -856,13 +856,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c12d929a7f62c48adbe9ff45c9a33ff0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Asset: {fileID: 11400000, guid: cf795e0031f921b44b82460cdee7de2e, type: 2}
+  m_Asset: {fileID: 11400000, guid: 9a7b814587953b14ebb86007bdd0378f, type: 2}
   m_RenderOrder: 0
-  m_SplatScale: 0.642
-  m_OpacityScale: 1
+  m_SplatScale: 0.448
+  m_OpacityScale: 1.43
   m_SHOrder: 0
   m_SHOnly: 0
-  m_SortNthFrame: 1
+  m_SortNthFrame: 4
   m_RenderMode: 0
   m_PointDisplaySize: 3
   m_Cutouts:
@@ -872,6 +872,9 @@ MonoBehaviour:
   m_ShaderDebugPoints: {fileID: 4800000, guid: b44409fc67214394f8f47e4e2648425e, type: 3}
   m_ShaderDebugBoxes: {fileID: 4800000, guid: 4006f2680fd7c8b4cbcb881454c782be, type: 3}
   m_CSSplatUtilities: {fileID: 7200000, guid: ec84f78b836bd4f96a105d6b804f08bd, type: 3}
+  m_CSSplatUtilitiesFfx: {fileID: 7200000, guid: 03bca3c792074c9ab911e04808cbef33, type: 3}
+  m_SortMethod: 2
+  m_VRSortOnceBothEyes: 1
 --- !u!4 &1609192435
 Transform:
   m_ObjectHideFlags: 0
@@ -907,11 +910,11 @@ MonoBehaviour:
   m_StylizedEnable: 1
   m_StyleSizeMin: 0.01
   m_StyleSizeMax: 0.6
-  m_AlphaCut: 0.069
+  m_AlphaCut: 0.186
   m_AlphaGamma: 0.8
   m_RandomFlip: 0
-  m_BaseSaturation: 0
-  m_BaseLift: 0.672
+  m_BaseSaturation: 0.441
+  m_BaseLift: 0.483
   m_PreviewPainted: 0
 --- !u!114 &1728323317
 MonoBehaviour:

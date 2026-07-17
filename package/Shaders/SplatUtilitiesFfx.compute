@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT
+// Variant of SplatUtilities.compute that uses AMD FidelityFX parallel sort instead of
+// DeviceRadixSort. FidelityFX only needs basic wave ops, which makes it reliable on
+// mobile GPUs (Quest / Android Vulkan) where the wave-intrinsics-heavy DeviceRadixSort
+// miscompiles. Kernel order of the utility kernels must match KernelIndices in
+// GaussianSplatRenderer.cs (same order as SplatUtilities.compute).
+#define GROUP_SIZE 32
+
+#pragma kernel CSSetIndices
+#pragma kernel CSCalcDistances
+#pragma kernel CSCalcViewData
+#pragma kernel CSUpdateEditData
+#pragma kernel CSInitEditData
+#pragma kernel CSClearBuffer
+#pragma kernel CSInvertSelection
+#pragma kernel CSSelectAll
+#pragma kernel CSOrBuffers
+#pragma kernel CSSelectionUpdate
+#pragma kernel CSTranslateSelection
+#pragma kernel CSRotateSelection
+#pragma kernel CSScaleSelection
+#pragma kernel CSExportData
+#pragma kernel CSCopySplats
+
+// FidelityFX GPU sorting
+#pragma kernel FfxParallelSortReduce
+#pragma kernel FfxParallelSortScanAdd
+#pragma kernel FfxParallelSortScan
+#pragma kernel FfxParallelSortScatter
+#pragma kernel FfxParallelSortCount
+
+// GPU sorting needs wave ops
+#pragma require wavebasic
+
+#pragma use_dxc
+
+#include "GpuSortFidelityFX.hlsl"
+#include "SplatUtilitiesBody.hlsl"
