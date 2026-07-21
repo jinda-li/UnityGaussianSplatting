@@ -34,30 +34,42 @@
 
 ## 实施步骤
 
-### 1. 环境（已完成一半）
+### 1. 环境（已完成）
 
 - [x] CUDA Toolkit 12.8（已装，winget）
 - [x] VS 2022（已有）
-- [ ] 克隆 gsplat：`git clone https://github.com/nerfstudio-project/gsplat --recursive`
-- [ ] venv + PyTorch cu128：`pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128`
-- [ ] `pip install gsplat` 及 examples 依赖（首次运行会 JIT 编译 CUDA 扩展，需 nvcc + cl 在 PATH）
+- [x] 克隆 gsplat → `C:\Users\standalone\Documents\3DGS\gsplat`（examples 对齐 v1.5.3）
+- [x] venv + PyTorch cu128（2.11.0+cu128）
+- [x] `pip install gsplat==1.5.3` + examples 依赖；Windows JIT 需修 MSVC flags / `small` 宏
 - 注：之前克隆的 `C:\Users\standalone\Documents\3DGS\LightGaussian` 已弃用，可删
+- 整理后的 COLMAP 目录：`C:\Users\standalone\Documents\3DGS\BotanicalGarden-America-gsplat`（`images/` + `sparse/0/` + `images_4_png/`）
 
 ### 2. 训练（RTX 3090，每档预计 30-60 分钟）
+
+```powershell
+# 推荐：用 launcher（已写好；含 --no-normalize-world-space）
+cd C:\Users\standalone\Documents\3DGS\gsplat\examples
+.\train_america_rscleaned_400k.ps1
+```
+
+或手动：
 
 ```bash
 cd gsplat/examples
 python simple_trainer.py mcmc \
   --strategy.cap-max 400000 \
-  --data-dir "C:/Users/standalone/Documents/3DGS/Botanical Garden - America - Colmap Data" \
-  --result-dir ./results/america_400k
+  --data-dir "C:/Users/standalone/Documents/3DGS/BotanicalGarden-America-RSCleaned-400k" \
+  --result-dir ./results/america_rscleaned_400k_nonorm \
+  --data-factor 4 \
+  --no-normalize-world-space \
+  --disable-viewer --save-ply --ply-steps 7000 30000
 ```
 
-- 跑两档：**400k**（主目标）+ **200k**（保险对比档）
-- 数据集是 RealityScan 导出的 COLMAP：先确认目录结构（`images/` + `sparse/0/`），
-  不符时用 `--data-factor` / 整理目录适配
-- 导出 PLY（gsplat 自带 export，或训练结束的 checkpoint 转 PLY）
+**必开 `--no-normalize-world-space`**：否则 gsplat 会 PCA/归一化改朝向，RealityScan 地平线进 Unity 仍歪。详见 [photos-to-unity-3dgs.md](../workflows/photos-to-unity-3dgs.md)。
 
+- 跑两档：**400k**（主目标）+ **200k**（保险对比档）
+- 日志：`examples/results/america_rscleaned_400k_nonorm_train.log`
+- 导出 PLY：`results/america_rscleaned_400k_nonorm/ply/point_cloud_29999.ply`
 ### 3. Unity 接入
 
 1. 用包内 `GaussianSplatAssetCreator`（Tools → Gaussian Splats → Create GaussianSplatAsset）导入 PLY
