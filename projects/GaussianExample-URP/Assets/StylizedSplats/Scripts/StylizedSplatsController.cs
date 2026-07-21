@@ -28,6 +28,10 @@ namespace StylizedSplats
         [Range(0f, 1f)] public float m_AlphaCut = 0.15f;
         public float m_AlphaGamma = 1f;
         public bool m_RandomFlip;
+        [Tooltip("Toggles Random Flip on/off on a timer, which makes the strokes churn like an animated oil painting")]
+        public bool m_AnimateRandomFlip;
+        [Tooltip("Seconds between Random Flip toggles")]
+        [Min(0.01f)] public float m_AnimateFlipInterval = 0.3f;
         [Range(0f, 1f)] public float m_BaseSaturation = 0.12f;
         [Tooltip("Lifts the unpainted base toward white (0 = plain gray, 1 = pure white). Keep below ~0.8 so shading stays readable")]
         [Range(0f, 1f)] public float m_BaseLift = 0.6f;
@@ -38,6 +42,9 @@ namespace StylizedSplats
 
         GraphicsBuffer m_PaintProgress;
         int m_PaintProgressCount;
+
+        bool m_FlipAnimState;
+        float m_FlipAnimNextTime;
 
         static FieldInfo s_FieldGpuPosData;
         static FieldInfo s_FieldGpuChunks;
@@ -74,8 +81,38 @@ namespace StylizedSplats
         void Update()
         {
             EnsurePaintBuffer();
+            UpdateFlipAnimation();
             PushGlobals();
         }
+
+        // Flipping Random Flip on and off repeatedly re-rolls the per-splat stroke
+        // orientation, which reads as an animated oil painting. Driven off
+        // realtimeSinceStartup so it also ticks while not in play mode.
+        void UpdateFlipAnimation()
+        {
+            if (!m_AnimateRandomFlip)
+            {
+                m_FlipAnimState = false;
+                m_FlipAnimNextTime = 0f;
+                return;
+            }
+
+#if UNITY_EDITOR
+            // Edit mode only pumps Update on demand; keep asking for the next tick.
+            if (!Application.isPlaying)
+                UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
+#endif
+
+            float now = Time.realtimeSinceStartup;
+            float interval = Mathf.Max(m_AnimateFlipInterval, 0.01f);
+            if (now >= m_FlipAnimNextTime)
+            {
+                m_FlipAnimState = !m_FlipAnimState;
+                m_FlipAnimNextTime = now + interval;
+            }
+        }
+
+        bool EffectiveRandomFlip => m_AnimateRandomFlip ? m_FlipAnimState : m_RandomFlip;
 
         bool RendererReady => m_Renderer != null && m_Renderer.HasValidAsset && m_Renderer.HasValidRenderSetup;
 
@@ -101,7 +138,7 @@ namespace StylizedSplats
             Shader.SetGlobalFloat(Props.StyleSizeMax, Mathf.Max(m_StyleSizeMax, m_StyleSizeMin + 1e-4f));
             Shader.SetGlobalFloat(Props.StyleAlphaCut, m_AlphaCut);
             Shader.SetGlobalFloat(Props.StyleAlphaGamma, m_AlphaGamma);
-            Shader.SetGlobalFloat(Props.StyleRandomFlip, m_RandomFlip ? 1f : 0f);
+            Shader.SetGlobalFloat(Props.StyleRandomFlip, EffectiveRandomFlip ? 1f : 0f);
             Shader.SetGlobalFloat(Props.BaseSaturation, m_BaseSaturation);
             Shader.SetGlobalFloat(Props.BaseLift, m_BaseLift);
             Shader.SetGlobalFloat(Props.PreviewPainted, m_PreviewPainted ? 1f : 0f);
