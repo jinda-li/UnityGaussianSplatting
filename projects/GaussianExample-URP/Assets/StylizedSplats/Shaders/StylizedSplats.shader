@@ -65,6 +65,7 @@ float  _RevealVanguardDistance;
 float  _RevealFireflyFraction;
 float  _RevealFireflySize;     // pixels
 float  _RevealFireflyTwinkleSpeed;
+float  _RevealFireflyIntensity; // global swarm fade-in, 0 at reveal start
 half3  _RevealFireflyColor;    // HDR-capable
 
 struct v2f
@@ -152,21 +153,32 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
             }
             else if (p <= 0)
             {
-                // ahead of the wavefront: hidden, except vanguard fireflies
-                bool firefly = (d < _RevealRadius + _RevealVanguardDistance) &&
-                               (hash < _RevealFireflyFraction);
+                // ahead of the wavefront: hidden, except vanguard fireflies.
+                // A firefly must not pop in at full brightness the instant it
+                // enters the band, so it fades over the band: 0 at the outer
+                // rim, 1 at the wavefront. _RevealFireflyIntensity fades the
+                // whole swarm up from nothing at the start of the reveal (and
+                // back down at the end of a reverse), which is what keeps the
+                // first frames from flashing a ball of fireflies at the center.
+                float vg = saturate((_RevealRadius + _RevealVanguardDistance - d)
+                                    / max(_RevealVanguardDistance, 1e-4));
+                float fade = vg * vg * _RevealFireflyIntensity;
+                bool firefly = (fade > 1e-3) && (hash < _RevealFireflyFraction);
                 if (!firefly)
                 {
                     revealDiscard = true;
                 }
                 else
                 {
-                    axis1 = float2(_RevealFireflySize, 0);
-                    axis2 = float2(0, _RevealFireflySize);
+                    // never shrink to a sub-pixel speck - that aliases into
+                    // its own kind of flicker
+                    float size = _RevealFireflySize * lerp(0.35, 1, fade);
+                    axis1 = float2(size, 0);
+                    axis2 = float2(0, size);
                     float tw = 0.5 + 0.5 * sin(_Time.y * _RevealFireflyTwinkleSpeed * (0.7 + 0.6 * hash)
                                                + hash * 6.2831853);
                     o.col.rgb = _RevealFireflyColor;
-                    o.col.a   = tw * tw;
+                    o.col.a   = tw * tw * fade;
                     styleAmount = 1; // force gaussian path, never a warped brush stroke
                 }
             }
