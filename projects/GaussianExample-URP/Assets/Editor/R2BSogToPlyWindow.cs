@@ -20,6 +20,7 @@ namespace R2B.Editor.GaussianCollision
         const string kPrefFilterNan = "com.r2b.SogToPly.FilterNan";
         const string kPrefUseDecimate = "com.r2b.SogToPly.UseDecimate";
         const string kPrefDecimateAmount = "com.r2b.SogToPly.DecimateAmount";
+        const string kPrefCpuDecimate = "com.r2b.SogToPly.CpuDecimate";
 
         readonly FilePickerControl m_InputPicker = new();
         readonly FilePickerControl m_OutputPicker = new();
@@ -32,6 +33,7 @@ namespace R2B.Editor.GaussianCollision
         [SerializeField] bool m_FilterNan = true;
         [SerializeField] bool m_UseDecimate;
         [SerializeField] string m_DecimateAmount = "10%";
+        [SerializeField] bool m_CpuDecimate;
         [SerializeField] Vector2 m_LogScroll;
 
         List<string> m_DiscoveredMetaFiles = new();
@@ -63,6 +65,7 @@ namespace R2B.Editor.GaussianCollision
             m_FilterNan = EditorPrefs.GetBool(kPrefFilterNan, m_FilterNan);
             m_UseDecimate = EditorPrefs.GetBool(kPrefUseDecimate, m_UseDecimate);
             m_DecimateAmount = EditorPrefs.GetString(kPrefDecimateAmount, m_DecimateAmount);
+            m_CpuDecimate = EditorPrefs.GetBool(kPrefCpuDecimate, m_CpuDecimate);
 
             EditorApplication.delayCall += DelayedCliDetect;
             EditorApplication.update += OnEditorUpdate;
@@ -219,9 +222,23 @@ namespace R2B.Editor.GaussianCollision
             m_UseDecimate = EditorGUILayout.Toggle("Decimate", m_UseDecimate);
             EditorGUILayout.LabelField("Reduce splat count. Useful for VR.", EditorStyles.miniLabel);
             using (new EditorGUI.DisabledScope(!m_UseDecimate))
+            {
                 m_DecimateAmount = EditorGUILayout.TextField("Amount", m_DecimateAmount);
-            if (m_UseDecimate)
-                EditorGUILayout.LabelField("e.g. 10% or 500000", EditorStyles.miniLabel);
+                if (m_UseDecimate)
+                    EditorGUILayout.LabelField("e.g. 10% or 500000", EditorStyles.miniLabel);
+
+                m_CpuDecimate = EditorGUILayout.Toggle("CPU Decimate", m_CpuDecimate);
+                if (m_UseDecimate)
+                    EditorGUILayout.LabelField("Slower, but avoids GPU driver timeouts.", EditorStyles.miniLabel);
+            }
+
+            if (m_UseDecimate && !m_CpuDecimate && AnyInputNeedsCpuDecimate())
+            {
+                EditorGUILayout.HelpBox(
+                    $"Input exceeds {SplatTransformCli.kCpuDecimateSplatThreshold / 1_000_000}M splats — " +
+                    "decimate will run on CPU automatically to avoid a GPU driver timeout.",
+                    MessageType.Info);
+            }
 
             DrawOutputEstimate();
 
@@ -320,6 +337,17 @@ namespace R2B.Editor.GaussianCollision
                 EditorGUILayout.TextArea(m_Log.ToString(), GUILayout.ExpandHeight(true));
                 EditorGUILayout.EndScrollView();
             }
+        }
+
+        bool AnyInputNeedsCpuDecimate()
+        {
+            foreach (string meta in m_DiscoveredMetaFiles)
+            {
+                if (SplatTransformCli.ShouldUseCpuForDecimate(meta, useDecimate: true, forceCpu: false))
+                    return true;
+            }
+
+            return false;
         }
 
         bool CanConvert()
@@ -456,7 +484,8 @@ namespace R2B.Editor.GaussianCollision
                     m_Overwrite,
                     m_FilterNan,
                     m_UseDecimate,
-                    m_DecimateAmount);
+                    m_DecimateAmount,
+                    m_CpuDecimate);
                 stagingDirectory = plan.stagingDirectory;
                 usesStagedMerge = plan.usesStagedMerge;
                 return plan.jobs;
@@ -487,7 +516,8 @@ namespace R2B.Editor.GaussianCollision
                 overwrite = m_Overwrite,
                 filterNan = m_FilterNan,
                 useDecimate = m_UseDecimate,
-                decimateAmount = m_DecimateAmount
+                decimateAmount = m_DecimateAmount,
+                useCpuDevice = SplatTransformCli.ShouldUseCpuForDecimate(inputs[0], m_UseDecimate, m_CpuDecimate)
             };
         }
 
@@ -665,6 +695,7 @@ namespace R2B.Editor.GaussianCollision
             EditorPrefs.SetBool(kPrefFilterNan, m_FilterNan);
             EditorPrefs.SetBool(kPrefUseDecimate, m_UseDecimate);
             EditorPrefs.SetString(kPrefDecimateAmount, m_DecimateAmount ?? string.Empty);
+            EditorPrefs.SetBool(kPrefCpuDecimate, m_CpuDecimate);
         }
     }
 }

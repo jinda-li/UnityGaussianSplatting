@@ -51,6 +51,7 @@ namespace R2B.Editor.GaussianCollision
         public bool filterNan;
         public bool useDecimate;
         public string decimateAmount;
+        public bool useCpuDevice;
     }
 
     public struct SogOutputEstimate
@@ -99,6 +100,10 @@ namespace R2B.Editor.GaussianCollision
         public const int kMaxCommandLineLength = 4000;
         public const long kUnityPlyMaxBytes = 2L * 1024 * 1024 * 1024;
         public const int kUnityMaxSplats = 8_600_000;
+
+        // Above this count, a single decimate GPU KNN dispatch can outlast the
+        // Windows TDR watchdog (DXGI_ERROR_DEVICE_HUNG), so fall back to CPU.
+        public const int kCpuDecimateSplatThreshold = 5_000_000;
 
         static readonly Regex s_RootCountRegex = new(
             "\"count\"\\s*:\\s*(\\d+)",
@@ -388,6 +393,17 @@ namespace R2B.Editor.GaussianCollision
             return sourceSplats;
         }
 
+        // CPU decimate when the user forces it, or when the input tile is large
+        // enough that the GPU KNN pass risks a driver timeout (device hung).
+        public static bool ShouldUseCpuForDecimate(string inputFile, bool useDecimate, bool forceCpu)
+        {
+            if (!useDecimate)
+                return false;
+            if (forceCpu)
+                return true;
+            return TryReadSogTileCount(inputFile, out int count) && count > kCpuDecimateSplatThreshold;
+        }
+
         public static string FormatSplatCount(int count) => $"{count:N0}";
 
         public static string FormatByteSize(long bytes) => EditorUtility.FormatBytes(bytes);
@@ -550,7 +566,8 @@ namespace R2B.Editor.GaussianCollision
             bool overwrite,
             bool filterNan,
             bool useDecimate,
-            string decimateAmount)
+            string decimateAmount,
+            bool cpuDecimate = false)
         {
             finalOutputPath = Path.GetFullPath(finalOutputPath);
             var plan = new MergePipelinePlan
@@ -566,7 +583,8 @@ namespace R2B.Editor.GaussianCollision
             if (metaFiles.Count == 1)
             {
                 plan.jobs.Add(CreateConvertSettings(
-                    metaFiles, finalOutputPath, overwrite, filterNan, useDecimate, decimateAmount));
+                    metaFiles, finalOutputPath, overwrite, filterNan, useDecimate, decimateAmount,
+                    ShouldUseCpuForDecimate(metaFiles[0], useDecimate, cpuDecimate)));
                 return plan;
             }
 
@@ -587,7 +605,8 @@ namespace R2B.Editor.GaussianCollision
                 string tilePly = Path.Combine(plan.stagingDirectory, $"t{i:D3}.ply");
                 plan.jobs.Add(CreateConvertSettings(
                     new[] { meta }, tilePly, overwrite: true, filterNan,
-                    useDecimate, perTileDecimateAmount?[i] ?? decimateAmount));
+                    useDecimate, perTileDecimateAmount?[i] ?? decimateAmount,
+                    ShouldUseCpuForDecimate(meta, useDecimate, cpuDecimate)));
                 currentFiles.Add(tilePly);
             }
 
@@ -759,7 +778,8 @@ namespace R2B.Editor.GaussianCollision
             bool overwrite,
             bool filterNan,
             bool useDecimate,
-            string decimateAmount)
+            string decimateAmount,
+            bool useCpuDevice = false)
         {
             return new SplatTransformConvertSettings
             {
@@ -768,7 +788,8 @@ namespace R2B.Editor.GaussianCollision
                 overwrite = overwrite,
                 filterNan = filterNan,
                 useDecimate = useDecimate,
-                decimateAmount = decimateAmount
+                decimateAmount = decimateAmount,
+                useCpuDevice = useCpuDevice
             };
         }
 
@@ -862,6 +883,9 @@ namespace R2B.Editor.GaussianCollision
         static string BuildConvertArguments(SplatTransformConvertSettings settings)
         {
             var sb = new StringBuilder();
+
+            if (settings.useCpuDevice)
+                sb.Append("-g cpu ");
 
             if (settings.overwrite)
                 sb.Append("-w ");
