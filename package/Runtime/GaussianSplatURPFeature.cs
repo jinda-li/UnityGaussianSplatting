@@ -31,6 +31,7 @@ namespace GaussianSplatting.Runtime
             class PassData
             {
                 internal UniversalCameraData CameraData;
+                internal int MultipassId;
                 internal TextureHandle SourceTexture;
                 internal TextureHandle SourceDepth;
                 internal TextureHandle GaussianSplatRT;
@@ -50,6 +51,10 @@ namespace GaussianSplatting.Runtime
                 var textureHandle = UniversalRenderer.CreateRenderGraphTexture(renderGraph, rtDesc, GaussianSplatRTName, true);
 
                 passData.CameraData = cameraData;
+                // In multi-pass stereo this is 0 for the first eye and 1 for the second, so the second eye
+                // can reuse the first eye's splat sort. Single Pass Instanced only ever records one pass, so
+                // this stays 0 and every pass sorts normally.
+                passData.MultipassId = cameraData.xr.enabled ? cameraData.xr.multipassId : 0;
                 passData.SourceTexture = resourceData.activeColorTexture;
                 passData.SourceDepth = resourceData.activeDepthTexture;
                 passData.GaussianSplatRT = textureHandle;
@@ -64,7 +69,7 @@ namespace GaussianSplatting.Runtime
                     using var _ = new ProfilingScope(commandBuffer, s_profilingSampler);
                     commandBuffer.SetGlobalTexture(s_gaussianSplatRT, data.GaussianSplatRT);
                     CoreUtils.SetRenderTarget(commandBuffer, data.GaussianSplatRT, data.SourceDepth, ClearFlag.Color, Color.clear);
-                    Material matComposite = GaussianSplatRenderSystem.instance.SortAndRenderSplats(data.CameraData.camera, commandBuffer);
+                    Material matComposite = GaussianSplatRenderSystem.instance.SortAndRenderSplats(data.CameraData.camera, commandBuffer, data.MultipassId);
                     commandBuffer.BeginSample(GaussianSplatRenderSystem.s_ProfCompose);
                     Blitter.BlitCameraTexture(commandBuffer, data.GaussianSplatRT, data.SourceTexture, matComposite, 0);
                     commandBuffer.EndSample(GaussianSplatRenderSystem.s_ProfCompose);

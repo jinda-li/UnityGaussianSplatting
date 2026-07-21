@@ -105,7 +105,9 @@ namespace GaussianSplatting.Runtime
         }
 
         // ReSharper disable once MemberCanBePrivate.Global - used by HDRP/URP features that are not always compiled
-        public Material SortAndRenderSplats(Camera cam, CommandBuffer cmb)
+        // multipassId: which eye pass this is in VR multi-pass stereo (0 = first eye, 1 = second eye).
+        // Pass -1 when the caller cannot tell, and the eye is inferred from the camera instead.
+        public Material SortAndRenderSplats(Camera cam, CommandBuffer cmb, int multipassId = -1)
         {
             Material matComposite = null;
             foreach (var kvp in m_ActiveSplats)
@@ -117,15 +119,29 @@ namespace GaussianSplatting.Runtime
 
                 // sort
                 var matrix = gs.transform.localToWorldMatrix;
-                // in VR multi-pass stereo, both eye passes happen within the same frame; the eyes are
-                // close enough together that one sort result can be shared between them
-                bool sortedThisFrame = gs.m_VRSortOnceBothEyes && cam.stereoEnabled && gs.m_LastSortedFrame == Time.frameCount;
-                if (gs.m_FrameCounter % gs.m_SortNthFrame == 0 && !sortedThisFrame)
+                // In VR multi-pass stereo the same camera renders twice per frame, once per eye; the eyes are
+                // close enough together that the first eye's sort result can be reused for the second.
+                // This must be scoped tightly: only the second eye pass of the very same camera that sorted
+                // earlier in this frame may reuse. Testing only "did anything sort this frame" lets any other
+                // camera (Scene view, overlay/secondary cameras) claim the frame and starve the XR camera of
+                // sorting entirely, which looks like badly broken depth order.
+                bool secondEyePass = multipassId >= 0
+                    ? multipassId > 0
+                    : cam.stereoActiveEye == Camera.MonoOrStereoscopicEye.Right;
+                bool reuseSort = gs.m_VRSortOnceBothEyes &&
+                                 secondEyePass &&
+                                 ReferenceEquals(gs.m_LastSortedCamera, cam) &&
+                                 gs.m_LastSortedFrame == Time.frameCount;
+                if (!reuseSort)
                 {
-                    gs.SortPoints(cmb, cam, matrix);
-                    gs.m_LastSortedFrame = Time.frameCount;
+                    if (gs.m_FrameCounter % gs.m_SortNthFrame == 0)
+                    {
+                        gs.SortPoints(cmb, cam, matrix);
+                        gs.m_LastSortedFrame = Time.frameCount;
+                        gs.m_LastSortedCamera = cam;
+                    }
+                    ++gs.m_FrameCounter;
                 }
-                ++gs.m_FrameCounter;
 
                 // cache view
                 kvp.Item2.Clear();
@@ -267,7 +283,7 @@ namespace GaussianSplatting.Runtime
         }
         [Tooltip("GPU sorting implementation. Auto picks FidelityFX on Android/Quest (DeviceRadixSort miscompiles there) and DeviceRadixSort elsewhere. Takes effect on enable.")]
         public SortMethod m_SortMethod = SortMethod.Auto;
-        [Tooltip("In VR multi-pass stereo, sort only once per frame and share the result between both eyes")]
+        [Tooltip("In VR multi-pass stereo, sort only once per frame and share the first eye's result with the second eye. No effect in Single Pass Instanced, which renders both eyes in one pass.")]
         public bool m_VRSortOnceBothEyes = true;
 
         internal GpuSorting.SortType effectiveSortType
@@ -317,6 +333,7 @@ namespace GaussianSplatting.Runtime
 
         internal int m_FrameCounter;
         internal int m_LastSortedFrame = -1;
+        internal Camera m_LastSortedCamera;
         GaussianSplatAsset m_PrevAsset;
         Hash128 m_PrevHash;
         bool m_Registered;
@@ -513,6 +530,7 @@ namespace GaussianSplatting.Runtime
         {
             m_FrameCounter = 0;
             m_LastSortedFrame = -1;
+            m_LastSortedCamera = null;
             if (!resourcesAreSetUp)
                 return;
 
