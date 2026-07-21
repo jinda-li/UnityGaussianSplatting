@@ -271,6 +271,9 @@ MonoBehaviour:
   m_AlphaCut: 0
   m_AlphaGamma: 0.8
   m_RandomFlip: 0
+  m_AnimateRandomFlip: 0
+  m_AnimateFlipInterval: 0.3
+  m_FlipJitter: 0
   m_BaseSaturation: 0.441
   m_BaseLift: 0.483
   m_PreviewPainted: 1
@@ -488,6 +491,9 @@ MonoBehaviour:
   m_AlphaCut: 0.27
   m_AlphaGamma: 0.8
   m_RandomFlip: 0
+  m_AnimateRandomFlip: 0
+  m_AnimateFlipInterval: 0.3
+  m_FlipJitter: 0
   m_BaseSaturation: 0.419
   m_BaseLift: 0.698
   m_PreviewPainted: 1
@@ -592,6 +598,9 @@ MonoBehaviour:
   m_AlphaCut: 0.188
   m_AlphaGamma: 2.65
   m_RandomFlip: 0
+  m_AnimateRandomFlip: 1
+  m_AnimateFlipInterval: 0.3
+  m_FlipJitter: 1
   m_BaseSaturation: 0.029
   m_BaseLift: 0.523
   m_PreviewPainted: 0
@@ -609,7 +618,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Asset: {fileID: 11400000, guid: a99a0ef4edf2985489227d38ccc258f1, type: 2}
   m_RenderOrder: 0
-  m_SplatScale: 0.604
+  m_SplatScale: 0.714
   m_OpacityScale: 2.3
   m_SHOrder: 0
   m_SHOnly: 0

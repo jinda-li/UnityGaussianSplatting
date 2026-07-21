@@ -36,6 +36,7 @@ float _StyleSizeMax;
 float _StyleAlphaCut;
 float _StyleAlphaGamma;
 float _StyleRandomFlip;
+float _StyleFlipJitter;
 float _BaseSaturation;
 float _BaseLift;
 float _StylizedPreviewPainted;
@@ -70,7 +71,7 @@ struct v2f
 {
     half4 col : COLOR0;
     float2 pos : TEXCOORD0;
-    half4 style : TEXCOORD1; // x = styleAmount (0=stylized,1=gaussian), y = opacity, z = flip sign, w unused
+    half4 style : TEXCOORD1; // x = styleAmount (0=stylized,1=gaussian), y = opacity, z = flip sign, w = stroke rotation (radians)
     float4 vertex : SV_POSITION;
 };
 
@@ -198,7 +199,13 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
 
         o.style.x = styleAmount;
         o.style.y = o.col.a; // opacity
-        o.style.z = (_StyleRandomFlip != 0 && HashInstance(instID) > 0.5) ? -1.0 : 1.0;
+        bool flipOn = _StyleRandomFlip != 0;
+        o.style.z = (flipOn && HashInstance(instID) > 0.5) ? -1.0 : 1.0;
+        // extra per-splat stroke rotation, applied only while the flip is on, so
+        // toggling the flip wobbles the strokes instead of just mirroring them
+        o.style.w = flipOn
+            ? (HashInstance(instID ^ 0x9E3779B9u) * 2.0 - 1.0) * _StyleFlipJitter * 1.5707963
+            : 0.0;
 
         uint idx = vtxID;
         float2 quadPos = float2(idx&1, (idx>>1)&1) * 2.0 - 1.0;
@@ -272,7 +279,17 @@ half4 frag (v2f i) : SV_Target
     float2 uv = i.pos * 0.25 + 0.5;
     if (i.style.z < 0)
         uv.x = 1 - uv.x;
+    if (i.style.w != 0)
+    {
+        float s, c;
+        sincos(i.style.w, s, c);
+        float2 d = uv - 0.5;
+        uv = float2(d.x * c - d.y * s, d.x * s + d.y * c) + 0.5;
+    }
     half brush = _StylizedBrushTex.Sample(sampler_StylizedBrushTex, uv).a;
+    // rotation can push the corners outside the brush quad; don't let the
+    // sampler's edge/wrap behaviour smear the stroke
+    brush *= all(uv == saturate(uv)) ? 1 : 0;
     half strokeAlpha = saturate((brush - _StyleAlphaCut) / max(1 - _StyleAlphaCut, 1e-4));
     strokeAlpha = pow(strokeAlpha, max(_StyleAlphaGamma, 1e-3));
     half opacity = i.style.y;
