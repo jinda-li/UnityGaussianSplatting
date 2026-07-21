@@ -1020,7 +1020,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 723ccc7c22a87e64f9dae538ab359cd3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StylizedSplats.VRSplatBrush
-  controller: {fileID: 0}
+  controller: {fileID: 497617368}
   leftTriggerAction:
     m_UseReference: 0
     m_Action:
