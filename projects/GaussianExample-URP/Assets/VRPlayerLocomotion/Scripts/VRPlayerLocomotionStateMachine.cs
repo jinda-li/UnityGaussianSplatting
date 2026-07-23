@@ -264,6 +264,7 @@ namespace VRPlayer
         {
             machine.CameraRig?.SnapRigToAvatarHead();
             machine.CameraRig?.SetLocomotionState(false);
+            machine.CameraRig?.SetAvatarFirstPersonVisibility(true);
             machine.AvatarHeadFollower?.EnableFollow();
             machine.RootMotionController?.SetLocomotionEnabled(true);
             machine.RootMotionController?.SetFacingEnabled(true);
@@ -273,6 +274,7 @@ namespace VRPlayer
         {
             machine.AvatarHeadFollower?.DisableFollow();
             machine.CameraRig?.SetLocomotionState(true);
+            machine.CameraRig?.SetAvatarFirstPersonVisibility(false);
             machine.RootMotionController?.SetLocomotionEnabled(true);
             machine.RootMotionController?.SetFacingEnabled(true);
         }
@@ -281,6 +283,8 @@ namespace VRPlayer
         {
             machine.AvatarHeadFollower?.DisableFollow();
             machine.CameraRig?.SetLocomotionState(false);
+            // Keep full avatar visible — camera is not inside the head during actions.
+            machine.CameraRig?.SetAvatarFirstPersonVisibility(false);
             machine.RootMotionController?.SetLocomotionEnabled(false);
             machine.RootMotionController?.SetFacingEnabled(false);
         }

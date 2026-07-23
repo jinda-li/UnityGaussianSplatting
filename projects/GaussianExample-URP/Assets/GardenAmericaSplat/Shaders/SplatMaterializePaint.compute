@@ -1,0 +1,78 @@
+// Paint compute for the "Splat Materialize" gameplay (GardenAmericaSplat scene).
+// Kept entirely separate from StylizedSplats so the old spray gameplay
+// (GardenAmericaRepaint) is untouched.
+//
+// The world starts as tiny dormant points; a thrown color comet bursts a
+// growing sphere of paint on impact, and splats inside it inflate into full
+// gaussians and regain their color. The buffer is float2: .x is the 0..1 paint
+// progress, .y is the time progress first crossed _PaintBloomAt (a birth
+// timestamp the shader turns into a one-shot bloom).
+//
+// A burst is a filled sphere whose radius grows over its lifetime (driven from
+// the CPU), so splats near the impact wake first and the color spreads outward
+// as a visible wavefront rather than flashing on all at once.
+#pragma kernel CSPaintBurst
+#pragma kernel CSReducePaint
+
+#define GROUP_SIZE 1024
+
+#include "Packages/org.nesnausk.gaussian-splatting/Shaders/GaussianSplatting.hlsl"
+
+RWStructuredBuffer<float2> _PaintProgress;
+uint _PaintSplatCount;
+float4x4 _PaintObjectToWorld;
+float3 _PaintCenter;
+float _PaintRadius; // current wavefront radius (grows over the burst lifetime)
+float _PaintEdge;   // soft shell width behind the wavefront
+float _PaintStrength;
+float _PaintTime;
+float _PaintBloomAt;
+
+[numthreads(GROUP_SIZE,1,1)]
+void CSPaintBurst (uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= _PaintSplatCount)
+        return;
+
+    float3 localPos = LoadSplatPos(idx);
+    float3 worldPos = mul(_PaintObjectToWorld, float4(localPos, 1)).xyz;
+
+    float d = distance(worldPos, _PaintCenter);
+    // filled sphere growing outward: 1 well inside the current radius, 0 outside
+    float t = saturate((_PaintRadius - d) / max(_PaintEdge, 1e-4));
+    float falloff = t * t * (3.0 - 2.0 * t);
+
+    float add = falloff * _PaintStrength;
+    if (add <= 0)
+        return;
+
+    float2 prev = _PaintProgress[idx];
+    float next = saturate(prev.x + add);
+
+    // Stamp the birth time only on the crossing frame, so a splat blooms once.
+    bool born = prev.x < _PaintBloomAt && next >= _PaintBloomAt;
+    _PaintProgress[idx] = float2(next, born ? _PaintTime : prev.y);
+}
+
+// Sums paint progress so the CPU can report coverage without reading back the
+// whole per-splat buffer: each group reduces to one float.
+RWStructuredBuffer<float> _PaintPartialSums;
+groupshared float gs_PaintSum[GROUP_SIZE];
+
+[numthreads(GROUP_SIZE,1,1)]
+void CSReducePaint (uint3 id : SV_DispatchThreadID, uint gi : SV_GroupIndex, uint3 gid : SV_GroupID)
+{
+    gs_PaintSum[gi] = id.x < _PaintSplatCount ? _PaintProgress[id.x].x : 0.0;
+    GroupMemoryBarrierWithGroupSync();
+
+    for (uint s = GROUP_SIZE / 2u; s > 0u; s >>= 1u)
+    {
+        if (gi < s)
+            gs_PaintSum[gi] += gs_PaintSum[gi + s];
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (gi == 0u)
+        _PaintPartialSums[gid.x] = gs_PaintSum[0];
+}

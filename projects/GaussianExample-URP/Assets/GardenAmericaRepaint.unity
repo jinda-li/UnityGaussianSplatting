@@ -276,6 +276,13 @@ MonoBehaviour:
   m_FlipJitter: 0
   m_BaseSaturation: 0.441
   m_BaseLift: 0.483
+  m_BloomAt: 0.45
+  m_PopDuration: 0.55
+  m_PopSize: 0.7
+  m_PopSaturation: 0.8
+  m_PopFlash: 0.5
+  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
+  m_CoverageInterval: 0.25
   m_PreviewPainted: 1
 --- !u!114 &221772589
 MonoBehaviour:
@@ -496,6 +503,13 @@ MonoBehaviour:
   m_FlipJitter: 0
   m_BaseSaturation: 0.419
   m_BaseLift: 0.698
+  m_BloomAt: 0.45
+  m_PopDuration: 0.55
+  m_PopSize: 0.7
+  m_PopSaturation: 0.8
+  m_PopFlash: 0.5
+  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
+  m_CoverageInterval: 0.25
   m_PreviewPainted: 1
 --- !u!114 &242042149
 MonoBehaviour:
@@ -570,6 +584,7 @@ GameObject:
   - component: {fileID: 497617370}
   - component: {fileID: 497617369}
   - component: {fileID: 497617368}
+  - component: {fileID: 497617371}
   m_Layer: 0
   m_Name: GaussianSplatsLightSupersplats
   m_TagString: Untagged
@@ -603,7 +618,14 @@ MonoBehaviour:
   m_FlipJitter: 1
   m_BaseSaturation: 0.029
   m_BaseLift: 0.523
-  m_PreviewPainted: 0
+  m_BloomAt: 0.45
+  m_PopDuration: 0.55
+  m_PopSize: 0.7
+  m_PopSaturation: 0.8
+  m_PopFlash: 0.5
+  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
+  m_CoverageInterval: 0.25
+  m_PreviewPainted: 1
 --- !u!114 &497617369
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -652,6 +674,121 @@ Transform:
   - {fileID: 151995870}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 180, y: 0, z: 0}
+--- !u!114 &497617371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 497617367}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a1c08c68f2dcff499fdcf025c09f795, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StylizedSplats.SplatWorldReveal
+  m_PlayOnStart: 1
+  m_Duration: 3
+  m_StartDelay: 1
+  m_MaxRadius: 15
+  m_RadiusCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_CenterTransform: {fileID: 0}
+  m_Center: {x: 0, y: 0, z: 0}
+  m_EdgeWidth: 2.5
+  m_SizeOvershoot: 1.28
+  m_FlashIntensity: 0.729
+  m_RippleAmplitude: 0.07
+  m_RippleFrequency: 1
+  m_RippleSpeed: 0.69
+  m_BobAmplitude: 0.04
+  m_UnrealTint: {r: 0.1, g: 0.2, b: 0.6, a: 1}
+  m_UnrealSaturation: 0.25
+  m_EdgeColor: {r: 0.35, g: 1.8, b: 2, a: 1}
+  m_FireflyColor: {r: 0.6, g: 2.2, b: 2.4, a: 1}
+  m_VanguardDistance: 6.74
+  m_FireflyFraction: 0.2
+  m_FireflySizePixels: 2.16
+  m_FireflyTwinkleSpeed: 13
+  m_FireflyFadeIn: 0.25
+  m_RevealClip: {fileID: 0}
+  m_AudioSource: {fileID: 0}
+  m_RevealVolume: 1
+  m_FadeSkybox: 1
+  m_SkyboxCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_FadeAmbientLight: 1
+  m_ToggleAction:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Toggle
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: a675b8b8-ce4f-4899-9976-3d5d973cb5ab
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: e2b0a78d-cac3-45bb-9408-42458d7e63b7
+        m_Path: <XRController>{LeftHand}/menuButton
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Toggle
+        m_Flags: 0
+      - m_Name: 
+        m_Id: 6e9387d9-8051-47e7-82fb-c99045bca4c2
+        m_Path: <Keyboard>/r
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Toggle
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
 --- !u!1001 &922546951
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1021,6 +1158,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StylizedSplats.VRSplatBrush
   controller: {fileID: 497617368}
+  bloom: {fileID: 0}
   leftTriggerAction:
     m_UseReference: 0
     m_Action:

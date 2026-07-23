@@ -11,6 +11,7 @@ namespace VRPlayer
         [SerializeField] private Transform avatarHead;
         [SerializeField] private Transform avatarRoot;
         [SerializeField] private VRPlayerControllerInput input;
+        [SerializeField] private AvatarFirstPersonVisibility avatarVisibility;
 
         [Header("Snap Turn")]
         [SerializeField] private float snapAngleDeg = 35f;
@@ -160,6 +161,16 @@ namespace VRPlayer
             {
                 onLocomotionEnded?.Invoke();
             }
+        }
+
+        /// <summary>
+        /// First-person: hide head/face. Third-person (locomotion/actions): show full avatar.
+        /// Call from idle/locomotion presentation — not every SetLocomotionState(false)
+        /// (e.g. dodge/action also clears locomotion without returning to HMD-inside-head).
+        /// </summary>
+        public void SetAvatarFirstPersonVisibility(bool firstPerson)
+        {
+            avatarVisibility?.SetFirstPerson(firstPerson);
         }
 
         public void SnapLeft()

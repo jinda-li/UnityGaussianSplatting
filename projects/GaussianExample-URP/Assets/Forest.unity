@@ -2198,6 +2198,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
       insertIndex: -1
       addedObject: {fileID: 921163009}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 921163011}
   m_SourcePrefab: {fileID: 100100000, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
 --- !u!4 &921162982 stripped
 Transform:
@@ -2685,6 +2688,27 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
   m_PrefabInstance: {fileID: 921162981}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &921163011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 921163005}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90dcf7073a81c274dab9652c6a894ad8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VRPlayer.AvatarFirstPersonVisibility
+  hideInFirstPerson:
+  - {fileID: 2059252502}
+  - {fileID: 2059252501}
+  - {fileID: 2059252500}
+  - {fileID: 2059252499}
+  - {fileID: 2059252498}
+  headBone: {fileID: 921162999}
+  firstPersonHeadScale: 0.0001
+  startInFirstPerson: 1
 --- !u!1 &964288762
 GameObject:
   m_ObjectHideFlags: 0
@@ -3226,6 +3250,7 @@ MonoBehaviour:
   avatarHead: {fileID: 1405979560}
   avatarRoot: {fileID: 921162982}
   input: {fileID: 652811039}
+  avatarVisibility: {fileID: 921163011}
   snapAngleDeg: 35
   orbitRadius: 2.5
   preventOrbitClipping: 1
@@ -4129,6 +4154,7 @@ MonoBehaviour:
   playerBody: {fileID: 1683839973}
   ikRigRoot: {fileID: 866190585}
   animator: {fileID: 921163010}
+  avatarVisibility: {fileID: 921163011}
   moveSpeed: 2.5
   gravity: -10
   calibrateKey: 99
@@ -5306,6 +5332,31 @@ Transform:
   - {fileID: 1621114585}
   m_Father: {fileID: 390851810}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2059252498 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7309362994424423593, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+  m_PrefabInstance: {fileID: 921162981}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2059252499 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -6452266432751415832, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+  m_PrefabInstance: {fileID: 921162981}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2059252500 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7966379580153382916, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+  m_PrefabInstance: {fileID: 921162981}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2059252501 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -3051815954447469673, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+  m_PrefabInstance: {fileID: 921162981}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2059252502 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -3661985432938654458, guid: da640ba9418d3b74c87673b3930c14b5, type: 3}
+  m_PrefabInstance: {fileID: 921162981}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2064049665
 GameObject:
   m_ObjectHideFlags: 0

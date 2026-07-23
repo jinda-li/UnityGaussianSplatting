@@ -19,6 +19,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private CharacterController playerBody;
     [SerializeField] private Transform ikRigRoot;
     [SerializeField] private Animator animator;
+    [SerializeField] private VRPlayer.AvatarFirstPersonVisibility avatarVisibility;
 
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 2.5f;
@@ -197,6 +198,9 @@ public class PlayerController : MonoBehaviour
 
         cameraRig?.SnapRigToAvatarHead();
         cameraRig?.SetLocomotionState(false);
+        // Redundant if cameraRig already drives avatarVisibility; keeps Forest setups that
+        // reference visibility only on PlayerController working.
+        avatarVisibility?.SetFirstPerson(true);
 
         if (playerBody != null)
             playerBody.enabled = true;
@@ -217,6 +221,7 @@ public class PlayerController : MonoBehaviour
             ikRetarget.enabled = false;
 
         cameraRig?.SetLocomotionState(true);
+        avatarVisibility?.SetFirstPerson(false);
 
         if (playerBody != null)
             playerBody.enabled = true;
