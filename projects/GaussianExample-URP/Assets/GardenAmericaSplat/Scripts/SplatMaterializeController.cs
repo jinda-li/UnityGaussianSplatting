@@ -22,8 +22,8 @@ namespace GardenSplat
         public ComputeShader m_PaintCompute;
 
         [Header("Dormant Look")]
-        [Tooltip("Color of an unpainted point - cool white / faint blue reads as raw, not-yet-rendered particle data")]
-        [ColorUsage(false)] public Color m_DormantColor = new Color(0.82f, 0.9f, 1f);
+        [Tooltip("Additive RGB offset applied over each dormant point's original splat color; black leaves it unchanged")]
+        [ColorUsage(false, true)] public Color m_DormantColorOffset = Color.black;
         [Tooltip("Dormant point size in screen pixels (uniform, like the renderer's debug points - not the gaussian ellipse)")]
         [Range(1f, 12f)] public float m_DormantPointSize = 3f;
         [Tooltip("Fraction of still-dormant points that render, so the world starts sparse (and cheaper). Painted points always show")]
@@ -301,7 +301,7 @@ namespace GardenSplat
 
         void PushGlobals()
         {
-            Shader.SetGlobalColor(Props.DormantColor, m_DormantColor);
+            Shader.SetGlobalColor(Props.DormantColorOffset, m_DormantColorOffset);
             Shader.SetGlobalFloat(Props.DormantPointSize, m_DormantPointSize);
             Shader.SetGlobalFloat(Props.DormantVisibleFraction, m_DormantVisibleFraction);
             Shader.SetGlobalFloat(Props.DormantDrift, m_DormantDrift);
@@ -350,7 +350,7 @@ namespace GardenSplat
 
         static class Props
         {
-            public const string DormantColor = "_DormantColor";
+            public const string DormantColorOffset = "_DormantColorOffset";
             public const string DormantPointSize = "_DormantPointSize";
             public const string DormantVisibleFraction = "_DormantVisibleFraction";
             public const string DormantDrift = "_DormantDrift";

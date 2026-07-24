@@ -831,10 +831,19 @@ namespace R2B.Editor.GaussianCleanup
                 m_InputPath = m_InputPicker.PathFieldGUI(rect, new GUIContent("Input PLY"), m_InputPath, "ply", "SplatCleanupInput");
                 rect = EditorGUILayout.GetControlRect();
                 m_OutputPath = m_OutputPicker.PathFieldGUI(rect, new GUIContent("Output PLY"), m_OutputPath, "ply", "SplatCleanupOutput", saveDialog: true);
-                if (string.IsNullOrWhiteSpace(m_OutputPath) && !string.IsNullOrWhiteSpace(m_InputPath))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Use <input>_clean.ply", GUILayout.Width(180)))
-                        m_OutputPath = DefaultOutputPath(m_InputPath);
+                    if (!string.IsNullOrWhiteSpace(m_OutputPath))
+                    {
+                        if (GUILayout.Button("Clear output", GUILayout.Width(100)))
+                            m_OutputPath = null;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(m_InputPath))
+                    {
+                        if (GUILayout.Button("Use <input>_clean.ply", GUILayout.Width(180)))
+                            m_OutputPath = DefaultOutputPath(m_InputPath);
+                    }
+                    GUILayout.FlexibleSpace();
                 }
             }
         }

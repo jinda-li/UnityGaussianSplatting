@@ -276,13 +276,6 @@ MonoBehaviour:
   m_FlipJitter: 0
   m_BaseSaturation: 0.441
   m_BaseLift: 0.483
-  m_BloomAt: 0.45
-  m_PopDuration: 0.55
-  m_PopSize: 0.7
-  m_PopSaturation: 0.8
-  m_PopFlash: 0.5
-  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
-  m_CoverageInterval: 0.25
   m_PreviewPainted: 1
 --- !u!114 &221772589
 MonoBehaviour:
@@ -503,13 +496,6 @@ MonoBehaviour:
   m_FlipJitter: 0
   m_BaseSaturation: 0.419
   m_BaseLift: 0.698
-  m_BloomAt: 0.45
-  m_PopDuration: 0.55
-  m_PopSize: 0.7
-  m_PopSaturation: 0.8
-  m_PopFlash: 0.5
-  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
-  m_CoverageInterval: 0.25
   m_PreviewPainted: 1
 --- !u!114 &242042149
 MonoBehaviour:
@@ -618,13 +604,6 @@ MonoBehaviour:
   m_FlipJitter: 1
   m_BaseSaturation: 0.029
   m_BaseLift: 0.523
-  m_BloomAt: 0.45
-  m_PopDuration: 0.55
-  m_PopSize: 0.7
-  m_PopSaturation: 0.8
-  m_PopFlash: 0.5
-  m_PopColor: {r: 1, g: 0.95, b: 0.75, a: 1}
-  m_CoverageInterval: 0.25
   m_PreviewPainted: 1
 --- !u!114 &497617369
 MonoBehaviour:
@@ -1158,7 +1137,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StylizedSplats.VRSplatBrush
   controller: {fileID: 497617368}
-  bloom: {fileID: 0}
   leftTriggerAction:
     m_UseReference: 0
     m_Action:

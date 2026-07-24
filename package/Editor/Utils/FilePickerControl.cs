@@ -153,10 +153,12 @@ namespace GaussianSplatting.Editor.Utils
 
         void SetDeferredPath(string nameKey, string path)
         {
-            m_DeferredPath = path;
+            // Use empty string as a sentinel for "cleared"; null means no deferred change.
+            m_DeferredPath = path ?? "";
             m_DeferredPathKey = nameKey;
-            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", path);
-            UpdatePreviousPaths(nameKey, path);
+            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", m_DeferredPath);
+            if (!string.IsNullOrWhiteSpace(m_DeferredPath))
+                UpdatePreviousPaths(nameKey, m_DeferredPath);
         }
 
         bool TryConsumeDeferredPath(string nameKey, ref string value)
@@ -164,20 +166,108 @@ namespace GaussianSplatting.Editor.Utils
             if (m_DeferredPath == null || m_DeferredPathKey != nameKey)
                 return false;
 
-            value = m_DeferredPath;
+            value = string.IsNullOrWhiteSpace(m_DeferredPath) ? null : m_DeferredPath;
             m_DeferredPath = null;
             m_DeferredPathKey = null;
             GUI.changed = true;
             return true;
         }
 
+        string ClearPath(string nameKey)
+        {
+            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", "");
+            GUI.changed = true;
+            return null;
+        }
+
+        string LastPathHint(string nameKey, string value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+            return EditorPrefs.GetString($"{kLastPathPref}-{nameKey}");
+        }
+
+        string BrowsePath(string value, string extension, string nameKey, bool isFolder, bool saveDialog)
+        {
+            string hint = LastPathHint(nameKey, value);
+            string newPath;
+            string openToPath = string.Empty;
+            if (isFolder)
+            {
+                if (Directory.Exists(hint))
+                    openToPath = hint;
+                newPath = EditorUtility.OpenFolderPanel("Select folder", openToPath, "");
+            }
+            else if (saveDialog)
+            {
+                string defaultName = string.Empty;
+                if (!string.IsNullOrWhiteSpace(hint))
+                {
+                    try
+                    {
+                        openToPath = Path.GetDirectoryName(Path.GetFullPath(hint));
+                        defaultName = Path.GetFileName(hint);
+                    }
+                    catch (Exception)
+                    {
+                        openToPath = string.Empty;
+                        defaultName = string.Empty;
+                    }
+                }
+                newPath = EditorUtility.SaveFilePanel("Save file", openToPath, defaultName, extension);
+            }
+            else
+            {
+                if (File.Exists(hint))
+                    openToPath = Path.GetDirectoryName(hint);
+                else if (Directory.Exists(hint))
+                    openToPath = hint;
+                newPath = EditorUtility.OpenFilePanel("Select file", openToPath, extension);
+            }
+
+            if (saveDialog && !isFolder)
+            {
+                if (string.IsNullOrWhiteSpace(newPath))
+                    return value;
+                newPath = PathAbsToStorage(newPath);
+                EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", newPath);
+                UpdatePreviousPaths(nameKey, newPath);
+                GUI.changed = true;
+                return newPath;
+            }
+
+            if (CheckAndSetNewPath(ref newPath, nameKey, isFolder))
+                return newPath;
+            return value;
+        }
+
+        void ShowPathContextMenu(
+            string value,
+            string extension,
+            string nameKey,
+            bool isFolder,
+            bool saveDialog,
+            Action<string> setPath)
+        {
+            var menu = new GenericMenu();
+            menu.AddItem(new GUIContent(isFolder ? "Select folder..." : (saveDialog ? "Choose save path..." : "Select file...")),
+                false, () => setPath(BrowsePath(value, extension, nameKey, isFolder, saveDialog)));
+            if (!string.IsNullOrWhiteSpace(value) && (File.Exists(value) || Directory.Exists(value)))
+                menu.AddItem(new GUIContent("Reveal in Finder"), false, () => EditorUtility.RevealInFinder(value));
+            else
+                menu.AddDisabledItem(new GUIContent("Reveal in Finder"));
+            if (!string.IsNullOrWhiteSpace(value))
+                menu.AddItem(new GUIContent("Clear"), false, () => setPath(ClearPath(nameKey)));
+            else
+                menu.AddDisabledItem(new GUIContent("Clear"));
+            menu.ShowAsContext();
+        }
+
         string PreviousPathsDropdown(Rect position, string value, string nameKey, bool isFolder, string optionalFileExtension = null)
         {
             PopulatePreviousPaths(nameKey);
 
-            if (string.IsNullOrWhiteSpace(value))
-                value = EditorPrefs.GetString($"{kLastPathPref}-{nameKey}");
-
+            // Do not auto-fill empty values from last-used prefs — that made Clear impossible to keep.
             m_PreviousPaths.TryGetValue(nameKey, out var prevPaths);
 
             EditorGUI.BeginDisabledGroup(prevPaths == null || prevPaths.paths.Count == 0);
@@ -209,9 +299,14 @@ namespace GaussianSplatting.Editor.Utils
             Rect dropdownRect = new Rect(textRect.xMax, fullRect.y, s_StyleTextFieldDropdown.fixedWidth, fullRect.height);
             Rect iconRect = new Rect(textRect.xMax - kIconSize, textRect.y, kIconSize, textRect.height);
 
+            // Apply deferred path from context-menu callbacks first (IMGUI can't mutate mid-event safely otherwise).
+            TryConsumeDeferredPath(nameKey, ref value);
             value = PreviousPathsDropdown(dropdownRect, value, nameKey, isFolder);
 
             string displayText = PathToDisplayString(value);
+            string tooltip = string.IsNullOrWhiteSpace(value)
+                ? "Click folder icon to browse · Right-click to clear"
+                : $"{value}\nClick folder icon to change · Delete/Backspace or right-click → Clear";
 
             Event evt = Event.current;
             switch (evt.type)
@@ -221,77 +316,42 @@ namespace GaussianSplatting.Editor.Utils
                     {
                         if (evt.keyCode is KeyCode.Backspace or KeyCode.Delete)
                         {
-                            value = null;
-                            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", "");
-                            GUI.changed = true;
+                            value = ClearPath(nameKey);
                             evt.Use();
                         }
                     }
                     break;
                 case EventType.Repaint:
-                    s_StyleTextFieldText.Draw(textRect, new GUIContent(displayText), controlId, DragAndDrop.activeControlID == controlId);
+                    s_StyleTextFieldText.Draw(textRect, new GUIContent(displayText, tooltip), controlId, DragAndDrop.activeControlID == controlId);
                     GUI.DrawTexture(iconRect, isFolder ? s_FolderIcon : s_FileIcon, ScaleMode.ScaleToFit);
                     break;
                 case EventType.MouseDown:
-                    if (evt.button != 0 || !GUI.enabled)
+                    if (!GUI.enabled || !textRect.Contains(evt.mousePosition))
                         break;
 
-                    if (textRect.Contains(evt.mousePosition))
+                    if (evt.button == 1)
                     {
-                        if (iconRect.Contains(evt.mousePosition))
-                        {
-                            if (string.IsNullOrWhiteSpace(value))
-                                value = EditorPrefs.GetString($"{kLastPathPref}-{nameKey}");
-                            string newPath;
-                            string openToPath = string.Empty;
-                            if (isFolder)
-                            {
-                                if (Directory.Exists(value))
-                                    openToPath = value;
-                                newPath = EditorUtility.OpenFolderPanel("Select folder", openToPath, "");
-                            }
-                            else if (saveDialog)
-                            {
-                                string defaultName = string.Empty;
-                                if (!string.IsNullOrWhiteSpace(value))
-                                {
-                                    openToPath = Path.GetDirectoryName(Path.GetFullPath(value));
-                                    defaultName = Path.GetFileName(value);
-                                }
-                                newPath = EditorUtility.SaveFilePanel("Save file", openToPath, defaultName, extension);
-                            }
-                            else
-                            {
-                                if (File.Exists(value))
-                                    openToPath = Path.GetDirectoryName(value);
-                                newPath = EditorUtility.OpenFilePanel("Select file", openToPath, extension);
-                            }
-
-                            if (saveDialog && !isFolder)
-                            {
-                                if (!string.IsNullOrWhiteSpace(newPath))
-                                {
-                                    newPath = PathAbsToStorage(newPath);
-                                    EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", newPath);
-                                    UpdatePreviousPaths(nameKey, newPath);
-                                    value = newPath;
-                                    GUI.changed = true;
-                                    evt.Use();
-                                }
-                            }
-                            else if (CheckAndSetNewPath(ref newPath, nameKey, isFolder))
-                            {
-                                value = newPath;
-                                GUI.changed = true;
-                                evt.Use();
-                            }
-                        }
-                        else if (File.Exists(value) || Directory.Exists(value))
-                        {
-                            EditorUtility.RevealInFinder(value);
-                        }
-                        GUIUtility.keyboardControl = controlId;
+                        ShowPathContextMenu(value, extension, nameKey, isFolder, saveDialog,
+                            path => SetDeferredPath(nameKey, path ?? ""));
+                        // SetDeferredPath always stores; empty string means clear — consume as null below.
+                        evt.Use();
+                        break;
                     }
+
+                    if (evt.button != 0)
+                        break;
+
+                    if (iconRect.Contains(evt.mousePosition))
+                    {
+                        value = BrowsePath(value, extension, nameKey, isFolder, saveDialog);
+                        evt.Use();
+                    }
+                    else if (evt.clickCount >= 2 && (File.Exists(value) || Directory.Exists(value)))
+                    {
+                        EditorUtility.RevealInFinder(value);
+                        evt.Use();
+                    }
+                    GUIUtility.keyboardControl = controlId;
                     break;
                 case EventType.DragUpdated:
                 case EventType.DragPerform:
@@ -353,6 +413,9 @@ namespace GaussianSplatting.Editor.Utils
 
             string displayText = PathToDisplayString(value);
             bool isDirectory = Directory.Exists(value);
+            string tooltip = string.IsNullOrWhiteSpace(value)
+                ? "Click folder icon to browse · Right-click to clear"
+                : $"{value}\nClick folder icon to change · Delete/Backspace or right-click → Clear";
 
             Event evt = Event.current;
             switch (evt.type)
@@ -362,58 +425,92 @@ namespace GaussianSplatting.Editor.Utils
                     {
                         if (evt.keyCode is KeyCode.Backspace or KeyCode.Delete)
                         {
-                            value = null;
-                            EditorPrefs.SetString($"{kLastPathPref}-{nameKey}", "");
-                            GUI.changed = true;
+                            value = ClearPath(nameKey);
                             evt.Use();
                         }
                     }
                     break;
                 case EventType.Repaint:
-                    s_StyleTextFieldText.Draw(textRect, new GUIContent(displayText), controlId, DragAndDrop.activeControlID == controlId);
+                    s_StyleTextFieldText.Draw(textRect, new GUIContent(displayText, tooltip), controlId, DragAndDrop.activeControlID == controlId);
                     GUI.DrawTexture(iconRect, isDirectory ? s_FolderIcon : s_FileIcon, ScaleMode.ScaleToFit);
                     break;
                 case EventType.MouseDown:
-                    if (evt.button != 0 || !GUI.enabled)
+                    if (!GUI.enabled || !textRect.Contains(evt.mousePosition))
                         break;
 
-                    if (textRect.Contains(evt.mousePosition))
+                    if (evt.button == 1)
                     {
-                        if (iconRect.Contains(evt.mousePosition))
-                        {
-                            if (string.IsNullOrWhiteSpace(value))
-                                value = EditorPrefs.GetString($"{kLastPathPref}-{nameKey}");
+                        string hint = LastPathHint(nameKey, value);
+                        string openToPath = string.Empty;
+                        if (Directory.Exists(hint))
+                            openToPath = hint;
+                        else if (File.Exists(hint))
+                            openToPath = Path.GetDirectoryName(hint);
 
-                            string openToPath = string.Empty;
-                            if (Directory.Exists(value))
-                                openToPath = value;
-                            else if (File.Exists(value))
-                                openToPath = Path.GetDirectoryName(value);
-
-                            string folderStart = openToPath;
-                            string fileStart = openToPath;
-                            var menu = new GenericMenu();
-                            menu.AddItem(new GUIContent("Select folder..."), false, () =>
-                            {
-                                string newPath = EditorUtility.OpenFolderPanel("Select folder", folderStart, "");
-                                if (!string.IsNullOrWhiteSpace(newPath) && Directory.Exists(newPath))
-                                    SetDeferredPath(nameKey, PathAbsToStorage(newPath));
-                            });
-                            menu.AddItem(new GUIContent($"Select .{fileExtension} file..."), false, () =>
-                            {
-                                string newPath = EditorUtility.OpenFilePanel($"Select .{fileExtension} file", fileStart, fileExtension);
-                                if (IsFolderOrFilePath(newPath, fileExtension))
-                                    SetDeferredPath(nameKey, PathAbsToStorage(newPath));
-                            });
-                            menu.ShowAsContext();
-                            evt.Use();
-                        }
-                        else if (File.Exists(value) || Directory.Exists(value))
+                        string folderStart = openToPath;
+                        string fileStart = openToPath;
+                        var menu = new GenericMenu();
+                        menu.AddItem(new GUIContent("Select folder..."), false, () =>
                         {
-                            EditorUtility.RevealInFinder(value);
-                        }
-                        GUIUtility.keyboardControl = controlId;
+                            string newPath = EditorUtility.OpenFolderPanel("Select folder", folderStart, "");
+                            if (!string.IsNullOrWhiteSpace(newPath) && Directory.Exists(newPath))
+                                SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                        });
+                        menu.AddItem(new GUIContent($"Select .{fileExtension} file..."), false, () =>
+                        {
+                            string newPath = EditorUtility.OpenFilePanel($"Select .{fileExtension} file", fileStart, fileExtension);
+                            if (IsFolderOrFilePath(newPath, fileExtension))
+                                SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                        });
+                        if (!string.IsNullOrWhiteSpace(value) && (File.Exists(value) || Directory.Exists(value)))
+                            menu.AddItem(new GUIContent("Reveal in Finder"), false, () => EditorUtility.RevealInFinder(value));
+                        else
+                            menu.AddDisabledItem(new GUIContent("Reveal in Finder"));
+                        if (!string.IsNullOrWhiteSpace(value))
+                            menu.AddItem(new GUIContent("Clear"), false, () => SetDeferredPath(nameKey, ""));
+                        else
+                            menu.AddDisabledItem(new GUIContent("Clear"));
+                        menu.ShowAsContext();
+                        evt.Use();
+                        break;
                     }
+
+                    if (evt.button != 0)
+                        break;
+
+                    if (iconRect.Contains(evt.mousePosition))
+                    {
+                        string hint = LastPathHint(nameKey, value);
+                        string openToPath = string.Empty;
+                        if (Directory.Exists(hint))
+                            openToPath = hint;
+                        else if (File.Exists(hint))
+                            openToPath = Path.GetDirectoryName(hint);
+
+                        string folderStart = openToPath;
+                        string fileStart = openToPath;
+                        var menu = new GenericMenu();
+                        menu.AddItem(new GUIContent("Select folder..."), false, () =>
+                        {
+                            string newPath = EditorUtility.OpenFolderPanel("Select folder", folderStart, "");
+                            if (!string.IsNullOrWhiteSpace(newPath) && Directory.Exists(newPath))
+                                SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                        });
+                        menu.AddItem(new GUIContent($"Select .{fileExtension} file..."), false, () =>
+                        {
+                            string newPath = EditorUtility.OpenFilePanel($"Select .{fileExtension} file", fileStart, fileExtension);
+                            if (IsFolderOrFilePath(newPath, fileExtension))
+                                SetDeferredPath(nameKey, PathAbsToStorage(newPath));
+                        });
+                        menu.ShowAsContext();
+                        evt.Use();
+                    }
+                    else if (evt.clickCount >= 2 && (File.Exists(value) || Directory.Exists(value)))
+                    {
+                        EditorUtility.RevealInFinder(value);
+                        evt.Use();
+                    }
+                    GUIUtility.keyboardControl = controlId;
                     break;
                 case EventType.DragUpdated:
                 case EventType.DragPerform:

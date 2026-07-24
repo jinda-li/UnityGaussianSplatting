@@ -8,6 +8,12 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/GardenAmericaSplat.unity
     guid: c6068a289613ba046b6926708187b6f9
+  - enabled: 1
+    path: Assets/Forest.unity
+    guid: 36934c1e75cb24745a91b0a1124a3179
+  - enabled: 1
+    path: Assets/GardenAmericaRepaint.unity
+    guid: 5e1103f1d59bf03439ef1f77e21446af
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 922cac0bb329bbf46b30484de063e46f, type: 2}

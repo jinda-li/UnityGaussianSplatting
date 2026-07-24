@@ -2,7 +2,7 @@
 // A separate shader from "Gaussian Splatting/Stylized Splats" so the old oil-
 // paint spray gameplay is left completely untouched.
 //
-// Look: the world begins as tiny, dim, cool-white DEBUG POINTS (uniform screen-
+// Look: the world begins as tiny DEBUG POINTS in each splat's original color (uniform screen-
 // space dots, like the renderer's point mode - not gaussian ellipses), and only
 // a fraction of them render, so it reads as raw sampled particle data. Paint
 // progress (fed by SplatMaterializePaint.compute) grows each point into a full
@@ -49,7 +49,7 @@ float _MaterializePreview; // editor: show everything fully materialized
 float _PaintTime;
 
 // dormant look
-half3 _DormantColor;            // cool white / faint blue
+half3 _DormantColorOffset;      // additive offset over the original splat color
 float _DormantPointSize;        // dormant point size in screen pixels (uniform, like debug points)
 float _DormantVisibleFraction;  // 0..1 fraction of still-dormant points that render
 float _DormantDrift;            // metres of idle bob while dormant
@@ -130,8 +130,9 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
         if (paint <= 1e-5 && HashInstance(instID ^ 0x1234567u) > _DormantVisibleFraction)
             discardSplat = true;
 
-        // dormant -> alive color
-        o.col.rgb = lerp(_DormantColor, o.col.rgb, lit);
+        // Keep the original splat color as the base, with an optional additive
+        // offset that fades away as the splat materializes.
+        o.col.rgb += _DormantColorOffset * (1 - lit);
 
         // idle drift while dormant, damped to nothing as the splat is painted
         float3 worldPos = mul(unity_ObjectToWorld, float4(LoadSplatPos(instID), 1)).xyz;
