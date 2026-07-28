@@ -23,6 +23,7 @@ namespace GaussianSplatting.Editor
         const string kCamerasJson = "cameras.json";
         const string kPrefQuality = "nesnausk.GaussianSplatting.CreatorQuality";
         const string kPrefOutputFolder = "nesnausk.GaussianSplatting.CreatorOutputFolder";
+        const string kPackageRoot = "Packages/org.nesnausk.gaussian-splatting";
 
         enum DataQuality
         {
@@ -31,6 +32,15 @@ namespace GaussianSplatting.Editor
             Medium,
             Low,
             VeryLow,
+            Custom,
+        }
+
+        // Largest single GraphicsBuffer the target device can create. Assets bigger than this have to be split
+        // into several GaussianSplatRenderers, since nothing in the runtime pages a buffer across allocations.
+        enum BufferLimit
+        {
+            [InspectorName("Quest / Mobile (128 MB)")] Quest,
+            [InspectorName("Desktop (2 GB)")] Desktop,
             Custom,
         }
 
@@ -46,6 +56,11 @@ namespace GaussianSplatting.Editor
         [SerializeField] GaussianSplatAsset.ColorFormat m_FormatColor;
         [SerializeField] GaussianSplatAsset.SHFormat m_FormatSH;
 
+        [SerializeField] bool m_SplitLargeAssets = true;
+        [SerializeField] BufferLimit m_BufferLimit = BufferLimit.Quest;
+        [SerializeField] long m_TargetMaxBufferSize = 128L * 1024 * 1024;
+        [SerializeField] float m_SplitSafetyFactor = 0.5f;
+
         string m_ErrorMessage;
         string m_PrevFilePath;
         int m_PrevVertexCount;
@@ -60,8 +75,8 @@ namespace GaussianSplatting.Editor
         [MenuItem("Tools/Gaussian Splats/Create GaussianSplatAsset")]
         public static void Init()
         {
-            var window = GetWindowWithRect<GaussianSplatAssetCreator>(new Rect(50, 50, 360, 340), false, "Gaussian Splat Creator", true);
-            window.minSize = new Vector2(320, 320);
+            var window = GetWindowWithRect<GaussianSplatAssetCreator>(new Rect(50, 50, 360, 440), false, "Gaussian Splat Creator", true);
+            window.minSize = new Vector2(320, 420);
             window.maxSize = new Vector2(1500, 1500);
             window.Show();
         }
@@ -169,6 +184,39 @@ namespace GaussianSplatting.Editor
             else
                 GUILayout.Space(EditorGUIUtility.singleLineHeight);
 
+            EditorGUILayout.Space();
+            GUILayout.Label("Large asset splitting", EditorStyles.boldLabel);
+            m_SplitLargeAssets = EditorGUILayout.Toggle(
+                new GUIContent("Split Large Assets", "Split the input into several assets, each small enough to fit into one GPU buffer on the target device. A prefab wiring all parts under one root is created alongside them."),
+                m_SplitLargeAssets);
+            EditorGUI.BeginDisabledGroup(!m_SplitLargeAssets);
+            EditorGUI.indentLevel++;
+            var newLimit = (BufferLimit)EditorGUILayout.EnumPopup("Device Buffer Limit", m_BufferLimit);
+            if (newLimit != m_BufferLimit)
+            {
+                m_BufferLimit = newLimit;
+                if (m_BufferLimit == BufferLimit.Quest)
+                    m_TargetMaxBufferSize = 128L * 1024 * 1024;
+                else if (m_BufferLimit == BufferLimit.Desktop)
+                    m_TargetMaxBufferSize = 2048L * 1024 * 1024;
+            }
+            if (m_BufferLimit == BufferLimit.Custom)
+                m_TargetMaxBufferSize = math.max(1, EditorGUILayout.LongField("Max Buffer Bytes", m_TargetMaxBufferSize));
+            if (m_SplitLargeAssets && m_PrevVertexCount > 0)
+            {
+                int maxPerPart = CalcMaxSplatsPerPart(m_TargetMaxBufferSize, m_SplitSafetyFactor, m_FormatPos, m_FormatScale, m_FormatSH);
+                int numParts = maxPerPart >= m_PrevVertexCount ? 1 : (m_PrevVertexCount + maxPerPart - 1) / maxPerPart;
+                EditorGUILayout.LabelField("Split Into",
+                    numParts <= 1
+                        ? $"1 part (fits, up to {maxPerPart:N0} splats)"
+                        : $"{numParts} parts x up to {maxPerPart:N0} splats");
+            }
+            else
+            {
+                GUILayout.Space(EditorGUIUtility.singleLineHeight);
+            }
+            EditorGUI.indentLevel--;
+            EditorGUI.EndDisabledGroup();
 
             EditorGUILayout.Space();
             GUILayout.BeginHorizontal();
@@ -228,6 +276,39 @@ namespace GaussianSplatting.Editor
         }
 
 
+        // Largest splat count whose every per-splat GPU buffer still fits into maxBufferBytes. Mirrors the
+        // allocations done by GaussianSplatRenderer.CreateResourcesForAsset and InitSortBuffers; keep in sync.
+        // Returns int.MaxValue when no splitting is needed.
+        static int CalcMaxSplatsPerPart(long maxBufferBytes, float safety,
+            GaussianSplatAsset.VectorFormat posF, GaussianSplatAsset.VectorFormat sclF,
+            GaussianSplatAsset.SHFormat shF)
+        {
+            if (maxBufferBytes <= 0)
+                return int.MaxValue;
+
+            long perSplat = 0;
+            perSplat = math.max(perSplat, GaussianSplatAsset.GetVectorSize(posF));                    // m_GpuPosData
+            perSplat = math.max(perSplat, GaussianSplatAsset.GetOtherSizeNoSHIndex(sclF) + 2);        // m_GpuOtherData (+2 = SH cluster index)
+            perSplat = math.max(perSplat, 40);                                                        // m_GpuView, kGpuViewDataSize
+            perSplat = math.max(perSplat, 4);                                                         // sort distances / keys
+
+            // Clustered SH formats store a fixed-size palette that does not grow with splat count.
+            long shPerSplat = shF switch
+            {
+                GaussianSplatAsset.SHFormat.Float32 => UnsafeUtility.SizeOf<GaussianSplatAsset.SHTableItemFloat32>(),
+                GaussianSplatAsset.SHFormat.Float16 => UnsafeUtility.SizeOf<GaussianSplatAsset.SHTableItemFloat16>(),
+                GaussianSplatAsset.SHFormat.Norm11 => UnsafeUtility.SizeOf<GaussianSplatAsset.SHTableItemNorm11>(),
+                GaussianSplatAsset.SHFormat.Norm6 => UnsafeUtility.SizeOf<GaussianSplatAsset.SHTableItemNorm6>(),
+                _ => 0
+            };
+            perSplat = math.max(perSplat, shPerSplat);
+
+            long result = (long)(maxBufferBytes * safety) / perSplat;
+            // Round down to whole compression chunks so every part has only full chunks.
+            result = result / GaussianSplatAsset.kChunkSize * GaussianSplatAsset.kChunkSize;
+            return (int)math.clamp(result, GaussianSplatAsset.kChunkSize, int.MaxValue);
+        }
+
         static T CreateOrReplaceAsset<T>(T asset, string path) where T : UnityEngine.Object
         {
             T result = AssetDatabase.LoadAssetAtPath<T>(path);
@@ -278,65 +359,193 @@ namespace GaussianSplatting.Editor
             };
             boundsJob.Schedule().Complete();
 
+            // Morton reordering has to happen over the whole input, before splitting: it is what makes a
+            // contiguous slice of the array a spatially compact blob.
             EditorUtility.DisplayProgressBar(kProgressTitle, "Morton reordering", 0.05f);
             ReorderMorton(inputSplats, boundsMin, boundsMax);
 
-            // cluster SHs
-            NativeArray<int> splatSHIndices = default;
-            NativeArray<GaussianSplatAsset.SHTableItemFloat16> clusteredSHs = default;
-            if (m_FormatSH >= GaussianSplatAsset.SHFormat.Cluster64k)
-            {
-                EditorUtility.DisplayProgressBar(kProgressTitle, "Cluster SHs", 0.2f);
-                ClusterSHs(inputSplats, m_FormatSH, out clusteredSHs, out splatSHIndices);
-            }
+            int total = inputSplats.Length;
+            int maxPerPart = m_SplitLargeAssets
+                ? CalcMaxSplatsPerPart(m_TargetMaxBufferSize, m_SplitSafetyFactor, m_FormatPos, m_FormatScale, m_FormatSH)
+                : int.MaxValue;
+            int numParts = maxPerPart >= total ? 1 : (total + maxPerPart - 1) / maxPerPart;
+            // Spread splats evenly over the parts instead of filling each to the brim, so the last part is not
+            // a tiny leftover. maxPerPart is a multiple of kChunkSize, so rounding up cannot exceed it.
+            int partSize = numParts == 1
+                ? total
+                : NextMultipleOf((total + numParts - 1) / numParts, GaussianSplatAsset.kChunkSize);
 
             string baseName = Path.GetFileNameWithoutExtension(FilePickerControl.PathToDisplayString(m_InputFile));
 
-            EditorUtility.DisplayProgressBar(kProgressTitle, "Creating data objects", 0.7f);
-            GaussianSplatAsset asset = ScriptableObject.CreateInstance<GaussianSplatAsset>();
-            asset.Initialize(inputSplats.Length, m_FormatPos, m_FormatScale, m_FormatColor, m_FormatSH, boundsMin, boundsMax, cameras);
-            asset.name = baseName;
-
-            var dataHash = new Hash128((uint)asset.splatCount, (uint)asset.formatVersion, 0, 0);
-            string pathChunk = $"{m_OutputFolder}/{baseName}_chk.bytes";
-            string pathPos = $"{m_OutputFolder}/{baseName}_pos.bytes";
-            string pathOther = $"{m_OutputFolder}/{baseName}_oth.bytes";
-            string pathCol = $"{m_OutputFolder}/{baseName}_col.bytes";
-            string pathSh = $"{m_OutputFolder}/{baseName}_shs.bytes";
-
             // if we are using full lossless (FP32) data, then do not use any chunking, and keep data as-is
             bool useChunks = isUsingChunks;
-            if (useChunks)
-                CreateChunkData(inputSplats, pathChunk, ref dataHash);
-            CreatePositionsData(inputSplats, pathPos, ref dataHash);
-            CreateOtherData(inputSplats, pathOther, ref dataHash, splatSHIndices);
-            CreateColorData(inputSplats, pathCol, ref dataHash);
-            CreateSHData(inputSplats, pathSh, ref dataHash, clusteredSHs);
-            asset.SetDataHash(dataHash);
 
-            splatSHIndices.Dispose();
-            clusteredSHs.Dispose();
+            var partAssets = new List<GaussianSplatAsset>();
+            var partPaths = new List<(string chunk, string pos, string other, string col, string sh, string asset)>();
+
+            for (int part = 0; part < numParts; ++part)
+            {
+                int start = part * partSize;
+                int len = math.min(partSize, total - start);
+                if (len <= 0)
+                    break;
+
+                // Each part gets its own asset with its own bounds, chunks and SH palette. CalcChunkDataJob
+                // rewrites splat data in place, and whether a GetSubArray view stays writable under the job
+                // safety system is version dependent, so copy the range out instead of aliasing the input. Only
+                // one part is held at a time. The single-part path keeps using the input array untouched, so
+                // non-split imports behave exactly as before.
+                NativeArray<InputSplatData> slice;
+                bool sliceOwned = false;
+                if (numParts == 1)
+                {
+                    slice = inputSplats;
+                }
+                else
+                {
+                    slice = new NativeArray<InputSplatData>(len, Allocator.Persistent);
+                    NativeArray<InputSplatData>.Copy(inputSplats, start, slice, 0, len);
+                    sliceOwned = true;
+                }
+
+                string partName = numParts > 1 ? $"{baseName}_p{part:00}" : baseName;
+                string partLabel = numParts > 1 ? $"Part {part + 1}/{numParts}: " : string.Empty;
+                s_PartProgressBase = 0.1f + 0.85f * part / numParts;
+                s_PartProgressScale = 0.85f / numParts;
+
+                try
+                {
+                    float3 partBoundsMin, partBoundsMax;
+                    var partBoundsJob = new CalcBoundsJob
+                    {
+                        m_BoundsMin = &partBoundsMin,
+                        m_BoundsMax = &partBoundsMax,
+                        m_SplatData = slice
+                    };
+                    partBoundsJob.Schedule().Complete();
+
+                    // cluster SHs
+                    NativeArray<int> splatSHIndices = default;
+                    NativeArray<GaussianSplatAsset.SHTableItemFloat16> clusteredSHs = default;
+                    if (m_FormatSH >= GaussianSplatAsset.SHFormat.Cluster64k)
+                    {
+                        EditorUtility.DisplayProgressBar(kProgressTitle, $"{partLabel}Cluster SHs", PartProgress(0.2f));
+                        ClusterSHs(slice, m_FormatSH, out clusteredSHs, out splatSHIndices);
+                    }
+
+                    EditorUtility.DisplayProgressBar(kProgressTitle, $"{partLabel}Creating data objects", PartProgress(0.7f));
+                    GaussianSplatAsset asset = ScriptableObject.CreateInstance<GaussianSplatAsset>();
+                    // Camera info goes on the first part only, otherwise ActivateCamera would see duplicates.
+                    asset.Initialize(len, m_FormatPos, m_FormatScale, m_FormatColor, m_FormatSH,
+                        partBoundsMin, partBoundsMax, part == 0 ? cameras : null);
+                    asset.name = partName;
+
+                    var dataHash = new Hash128((uint)asset.splatCount, (uint)asset.formatVersion, 0, 0);
+                    var paths = (
+                        chunk: $"{m_OutputFolder}/{partName}_chk.bytes",
+                        pos: $"{m_OutputFolder}/{partName}_pos.bytes",
+                        other: $"{m_OutputFolder}/{partName}_oth.bytes",
+                        col: $"{m_OutputFolder}/{partName}_col.bytes",
+                        sh: $"{m_OutputFolder}/{partName}_shs.bytes",
+                        asset: $"{m_OutputFolder}/{partName}.asset");
+
+                    if (useChunks)
+                        CreateChunkData(slice, paths.chunk, ref dataHash);
+                    CreatePositionsData(slice, paths.pos, ref dataHash);
+                    CreateOtherData(slice, paths.other, ref dataHash, splatSHIndices);
+                    CreateColorData(slice, paths.col, ref dataHash);
+                    CreateSHData(slice, paths.sh, ref dataHash, clusteredSHs);
+                    asset.SetDataHash(dataHash);
+
+                    if (splatSHIndices.IsCreated)
+                        splatSHIndices.Dispose();
+                    if (clusteredSHs.IsCreated)
+                        clusteredSHs.Dispose();
+
+                    partAssets.Add(asset);
+                    partPaths.Add(paths);
+                }
+                finally
+                {
+                    if (sliceOwned)
+                        slice.Dispose();
+                }
+            }
+
+            s_PartProgressBase = 0.0f;
+            s_PartProgressScale = 1.0f;
 
             // files are created, import them so we can get to the imported objects, ugh
-            EditorUtility.DisplayProgressBar(kProgressTitle, "Initial texture import", 0.85f);
+            EditorUtility.DisplayProgressBar(kProgressTitle, "Initial texture import", 0.95f);
             AssetDatabase.Refresh(ImportAssetOptions.ForceUncompressedImport);
 
-            EditorUtility.DisplayProgressBar(kProgressTitle, "Setup data onto asset", 0.95f);
-            asset.SetAssetFiles(
-                useChunks ? AssetDatabase.LoadAssetAtPath<TextAsset>(pathChunk) : null,
-                AssetDatabase.LoadAssetAtPath<TextAsset>(pathPos),
-                AssetDatabase.LoadAssetAtPath<TextAsset>(pathOther),
-                AssetDatabase.LoadAssetAtPath<TextAsset>(pathCol),
-                AssetDatabase.LoadAssetAtPath<TextAsset>(pathSh));
+            EditorUtility.DisplayProgressBar(kProgressTitle, "Setup data onto asset", 0.97f);
+            var savedAssets = new List<GaussianSplatAsset>(partAssets.Count);
+            for (int i = 0; i < partAssets.Count; ++i)
+            {
+                var paths = partPaths[i];
+                partAssets[i].SetAssetFiles(
+                    useChunks ? AssetDatabase.LoadAssetAtPath<TextAsset>(paths.chunk) : null,
+                    AssetDatabase.LoadAssetAtPath<TextAsset>(paths.pos),
+                    AssetDatabase.LoadAssetAtPath<TextAsset>(paths.other),
+                    AssetDatabase.LoadAssetAtPath<TextAsset>(paths.col),
+                    AssetDatabase.LoadAssetAtPath<TextAsset>(paths.sh));
+                savedAssets.Add(CreateOrReplaceAsset(partAssets[i], paths.asset));
+            }
 
-            var assetPath = $"{m_OutputFolder}/{baseName}.asset";
-            var savedAsset = CreateOrReplaceAsset(asset, assetPath);
+            UnityEngine.Object toSelect = savedAssets.Count > 0 ? savedAssets[0] : null;
+            if (savedAssets.Count > 1)
+            {
+                EditorUtility.DisplayProgressBar(kProgressTitle, "Creating split prefab", 0.98f);
+                var prefab = CreateSplitPrefab(baseName, savedAssets);
+                if (prefab != null)
+                    toSelect = prefab;
+            }
 
             EditorUtility.DisplayProgressBar(kProgressTitle, "Saving assets", 0.99f);
             AssetDatabase.SaveAssets();
             EditorUtility.ClearProgressBar();
 
-            Selection.activeObject = savedAsset;
+            if (savedAssets.Count > 1)
+                Debug.Log($"GS: split '{baseName}' ({total:N0} splats) into {savedAssets.Count} assets of up to {partSize:N0} splats each, wired up in '{baseName}_Split.prefab'.");
+
+            Selection.activeObject = toSelect;
+        }
+
+        // Builds a prefab with one child GaussianSplatRenderer per part, so the split asset can be dropped into
+        // a scene as a single object. Returns null if the prefab could not be saved.
+        GameObject CreateSplitPrefab(string baseName, List<GaussianSplatAsset> parts)
+        {
+            var root = new GameObject(baseName);
+            try
+            {
+                foreach (var part in parts)
+                {
+                    var go = new GameObject(part.name);
+                    go.transform.SetParent(root.transform, false);
+                    var gs = go.AddComponent<GaussianSplatRenderer>();
+                    gs.m_Asset = part;
+                    AssignDefaultResources(gs);
+                }
+                string prefabPath = $"{m_OutputFolder}/{baseName}_Split.prefab";
+                return PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            }
+            finally
+            {
+                DestroyImmediate(root);
+            }
+        }
+
+        // Shader/compute references on a freshly added GaussianSplatRenderer are null; point them at the ones
+        // shipped with the package, the same way the sample scenes have them wired.
+        static void AssignDefaultResources(GaussianSplatRenderer gs)
+        {
+            gs.m_ShaderSplats = AssetDatabase.LoadAssetAtPath<Shader>($"{kPackageRoot}/Shaders/RenderGaussianSplats.shader");
+            gs.m_ShaderComposite = AssetDatabase.LoadAssetAtPath<Shader>($"{kPackageRoot}/Shaders/GaussianComposite.shader");
+            gs.m_ShaderDebugPoints = AssetDatabase.LoadAssetAtPath<Shader>($"{kPackageRoot}/Shaders/GaussianDebugRenderPoints.shader");
+            gs.m_ShaderDebugBoxes = AssetDatabase.LoadAssetAtPath<Shader>($"{kPackageRoot}/Shaders/GaussianDebugRenderBoxes.shader");
+            gs.m_CSSplatUtilities = AssetDatabase.LoadAssetAtPath<ComputeShader>($"{kPackageRoot}/Shaders/SplatUtilities.compute");
+            gs.m_CSSplatUtilitiesFfx = AssetDatabase.LoadAssetAtPath<ComputeShader>($"{kPackageRoot}/Shaders/SplatUtilitiesFfx.compute");
         }
 
         NativeArray<InputSplatData> LoadInputSplatFile(string filePath)
@@ -467,9 +676,15 @@ namespace GaussianSplatting.Editor
                 m_Output[index] = res;
             }
         }
+        // Progress bar range currently owned by the part being written, so a multi-part import still shows one
+        // monotonically advancing bar instead of restarting per part.
+        static float s_PartProgressBase;
+        static float s_PartProgressScale = 1.0f;
+        static float PartProgress(float t) => s_PartProgressBase + t * s_PartProgressScale;
+
         static bool ClusterSHProgress(float val)
         {
-            EditorUtility.DisplayProgressBar(kProgressTitle, $"Cluster SHs ({val:P0})", 0.2f + val * 0.5f);
+            EditorUtility.DisplayProgressBar(kProgressTitle, $"Cluster SHs ({val:P0})", PartProgress(0.2f + val * 0.5f));
             return true;
         }
 

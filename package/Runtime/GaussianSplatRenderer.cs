@@ -429,6 +429,25 @@ namespace GaussianSplatting.Runtime
             if (!HasValidAsset)
                 return;
 
+            // Bail out early if any single GraphicsBuffer we are about to create would exceed what the device
+            // supports (Quest 3 / Adreno caps this at 128MB). Creating them anyway throws, leaves the GPU
+            // resources null, and every later frame then throws out of SortPoints, which takes down the whole
+            // camera output. Returning here keeps HasValidRenderSetup false so GatherSplatsForCamera skips us.
+            long maxBuf = SystemInfo.maxGraphicsBufferSize;
+            long viewSize = (long)asset.splatCount * kGpuViewDataSize;
+            long biggest = math.max(
+                math.max((long)asset.posData.dataSize, (long)asset.otherData.dataSize),
+                math.max((long)asset.shData.dataSize, viewSize));
+            if (biggest > maxBuf)
+            {
+                Debug.LogError(
+                    $"{nameof(GaussianSplatRenderer)} '{name}': asset '{asset.name}' ({asset.splatCount:N0} splats) needs a " +
+                    $"{biggest / (1024 * 1024)}MB GPU buffer but this device supports at most {maxBuf / (1024 * 1024)}MB. " +
+                    $"Re-import the source file with 'Split Large Assets' enabled (Tools > Gaussian Splats > Create GaussianSplatAsset).",
+                    this);
+                return;
+            }
+
             m_SplatCount = asset.splatCount;
             m_GpuPosData = new GraphicsBuffer(GraphicsBuffer.Target.Raw | GraphicsBuffer.Target.CopySource, (int) (asset.posData.dataSize / 4), 4) { name = "GaussianPosData" };
             m_GpuPosData.SetData(asset.posData.GetData<uint>());
