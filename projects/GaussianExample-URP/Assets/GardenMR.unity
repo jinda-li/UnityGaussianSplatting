@@ -267,7 +267,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -1.74, y: 0, z: 3.76}
-  m_LocalScale: {x: 0.39, y: 0.39, z: 0.39}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 643888093}
@@ -301,7 +301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d563c4f76e1a9754f8249805c796399b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GardenMR.ConstantWorldScale
-  m_WorldSize: 0.08
+  m_WorldSize: 0.03
   m_Reference: {fileID: 0}
 --- !u!23 &138778821
 MeshRenderer:
@@ -1543,7 +1543,7 @@ Transform:
   m_GameObject: {fileID: 1314183433}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.94, y: 0, z: 0.36}
+  m_LocalPosition: {x: 0.4, y: 0, z: 0.4}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -1731,10 +1731,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c12d929a7f62c48adbe9ff45c9a33ff0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Asset: {fileID: 11400000, guid: bfbe357cbadecb848bbf2cfd11f58675, type: 2}
+  m_Asset: {fileID: 11400000, guid: 67102e62f46541d47a2db59b000e0fb0, type: 2}
   m_RenderOrder: 0
-  m_SplatScale: 0.532
-  m_OpacityScale: 1.22
+  m_SplatScale: 0.598
+  m_OpacityScale: 1.47
   m_SHOrder: 0
   m_SHOnly: 0
   m_SortNthFrame: 1
@@ -1784,7 +1784,7 @@ MonoBehaviour:
   m_Renderer: {fileID: 1609192434}
   m_PaintCompute: {fileID: 7200000, guid: fb36ec9ad9dde0d44a9509d044146a12, type: 3}
   m_BrushTexture: {fileID: 2800000, guid: 877f356f0cd7d1346bb25bf498cc7890, type: 3}
-  m_StylizedEnable: 0
+  m_StylizedEnable: 1
   m_StyleSizeMin: 0.01
   m_StyleSizeMax: 0.6
   m_AlphaCut: 0.107
@@ -1795,9 +1795,9 @@ MonoBehaviour:
   m_FlipJitter: 0
   m_BaseSaturation: 0.321
   m_BaseLift: 0.483
-  m_PreviewPainted: 0
+  m_PreviewPainted: 1
   m_SizeCullEnable: 1
-  m_SizeCullMax: 0.44
+  m_SizeCullMax: 1.62
 --- !u!82 &1609192437
 AudioSource:
   m_ObjectHideFlags: 0
@@ -2066,11 +2066,11 @@ MonoBehaviour:
   m_StartingInteractionStrengthFilters: []
   m_AutoFindParentInteractableInHierarchy: 0
   m_ParentInteractableObject: {fileID: 0}
-  m_AttachTransform: {fileID: 1863419792}
+  m_AttachTransform: {fileID: 1314183434}
   m_SecondaryAttachTransform: {fileID: 0}
   m_UseDynamicAttach: 1
   m_MatchAttachPosition: 0
-  m_MatchAttachRotation: 0
+  m_MatchAttachRotation: 1
   m_SnapToColliderVolume: 0
   m_ReinitializeDynamicAttachEverySingleGrab: 1
   m_AttachEaseInTime: 0.15
@@ -2162,7 +2162,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0a1302d0d134fa8a2a5b3bf4aec3c20, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Transformers.XRGeneralGrabTransformer
-  m_PermittedDisplacementAxes: 7
+  m_PermittedDisplacementAxes: -1
   m_ConstrainedAxisDisplacementMode: 1
   m_TwoHandedRotationMode: 1
   m_AllowOneHandedScaling: 0
@@ -2217,7 +2217,7 @@ Transform:
   m_GameObject: {fileID: 1974337850}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.385, y: 0, z: 0.366}
+  m_LocalPosition: {x: 0.4, y: 0, z: -0.4}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 1
   m_Children: []

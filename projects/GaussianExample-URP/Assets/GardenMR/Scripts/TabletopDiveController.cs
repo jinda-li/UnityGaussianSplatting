@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using GaussianSplatting.Runtime;
 using VRPlayer;
 
@@ -268,6 +269,7 @@ namespace GardenMR
             SetPassthrough(true);
             SetVignette(m_ApertureOpen);
             SetGardenAmbience(false);
+            SetRigGrabEnabled(true);
         }
 
         void EnterImmersive()
@@ -275,6 +277,7 @@ namespace GardenMR
             CurrentState = State.Immersive;
             SetActive(m_PlaceModeHandles, false);
             SetActive(m_SpawnPointsGroup, false);
+            SetRigGrabEnabled(false);
             SetCutout(false);
             SetPassthrough(false);
             // Ground first, then re-enable the body: the CharacterController must have
@@ -286,6 +289,26 @@ namespace GardenMR
             SnapCameraToFirstPerson();
             SetVignette(m_ApertureOpen);
             SetGardenAmbience(true);
+        }
+
+        // GardenMRRig owns XRGrabInteractable; PlaceModeHandles only supply the collider.
+        // If a grab is still active when handles disable for Dive, Instantaneous movement can
+        // keep yanking the (now mostly-empty) rig toward the controller — so on Return the
+        // miniature reparents under a rig that has drifted off the desk.
+        void SetRigGrabEnabled(bool enabled)
+        {
+            if (!m_Rig)
+                return;
+            var grab = m_Rig.GetComponent<XRGrabInteractable>();
+            if (!grab)
+                return;
+            if (!enabled && grab.isSelected && grab.interactionManager)
+            {
+                var selecting = grab.interactorsSelecting;
+                for (int i = selecting.Count - 1; i >= 0; --i)
+                    grab.interactionManager.SelectExit(selecting[i], grab);
+            }
+            grab.enabled = enabled;
         }
 
         // Mute large ground meshes (e.g. GaussianSplats/Plane) in Place so XR rays can hit
@@ -427,13 +450,16 @@ namespace GardenMR
 
         // ---- dive / return ----
 
-        // Captured at Dive() so Return can restore the exact tabletop pose the player set
-        // (world position on a real desk, scale, and the spawn used as the scale pivot).
+        // Captured at Dive() so Return can put GaussianSplats back under GardenMRRig.
+        // Only the splat's local pose matters: the Place rig stays in the scene (and may be
+        // moved as a whole); joystick locomotion must not be "undone" and we must not
+        // rewrite the rig's world pose from absolute coordinates.
         float m_PreDiveMagnitude;
-        Vector3 m_PreDiveSplatWorldPos;
-        Quaternion m_PreDiveSplatWorldRot;
-        Vector3 m_PreDiveSpawnWorldPos;
-        Vector3 m_DiveLocalAnchor; // spawn in splat-local (unscaled) space; fixed for Dive+Return
+        Vector3 m_PreDiveSplatLocalPos;
+        Quaternion m_PreDiveSplatLocalRot;
+        Vector3 m_PreDiveSplatLocalScale;
+        Vector3 m_PreDiveSpawnLocalToRig; // spawn point in GardenMRRig local space
+        Vector3 m_DiveLocalAnchor; // spawn in splat-local (unscaled) space; used during Dive grow
 
         public void Dive(SplatSpawnPoint point)
         {
@@ -441,11 +467,16 @@ namespace GardenMR
                 return;
             if (m_Routine != null)
                 StopCoroutine(m_Routine);
+
             m_PreDiveMagnitude = CurrentMagnitude;
-            m_PreDiveSplatWorldPos = m_SplatRoot.position;
-            m_PreDiveSplatWorldRot = m_SplatRoot.rotation;
-            m_PreDiveSpawnWorldPos = point.transform.position;
-            m_Routine = StartCoroutine(DiveRoutine(m_PreDiveSpawnWorldPos));
+            m_PreDiveSplatLocalPos = m_SplatRoot.localPosition;
+            m_PreDiveSplatLocalRot = m_SplatRoot.localRotation;
+            m_PreDiveSplatLocalScale = m_SplatRoot.localScale;
+            m_PreDiveSpawnLocalToRig = m_Rig
+                ? m_Rig.InverseTransformPoint(point.transform.position)
+                : point.transform.position;
+
+            m_Routine = StartCoroutine(DiveRoutine(point.transform.position));
         }
 
         public void Return()
@@ -461,6 +492,9 @@ namespace GardenMR
         {
             CurrentState = State.Diving;
             PlayTransition();
+            // Drop any active grab BEFORE hiding handles, otherwise Instantaneous grab can
+            // keep dragging the empty Place rig toward the controller during the transition.
+            SetRigGrabEnabled(false);
             SetActive(m_PlaceModeHandles, false);
             SetActive(m_SpawnPointsGroup, false);
 
@@ -517,6 +551,7 @@ namespace GardenMR
         {
             CurrentState = State.Returning;
             PlayTransition();
+            SetRigGrabEnabled(false);
             SetGardenAmbience(false);
             SetAvatar(false);
             SetActive(m_CollisionProxy, false);
@@ -526,14 +561,15 @@ namespace GardenMR
                 targetMag = Mathf.Clamp(targetMag, m_ScaleHandle.m_MinScale, m_ScaleHandle.m_MaxScale);
             targetMag = Mathf.Max(targetMag, 1e-4f);
 
-            // Shrink back toward the desk pose captured at Dive. During Immersive the splat
-            // stays fixed in the room, so the live spawn world pos is TransformPoint(local) —
-            // NOT the player's current feet (they may have walked away).
-            Quaternion rot = m_PreDiveSplatWorldRot;
+            // Shrink toward wherever GardenMRRig currently is (desk), using the spawn's
+            // saved local offset under the rig — not absolute world coords from Dive time.
+            Quaternion endRot = m_Rig
+                ? m_Rig.rotation * m_PreDiveSplatLocalRot
+                : m_PreDiveSplatLocalRot;
             Vector3 anchorStart = m_SplatRoot.TransformPoint(m_DiveLocalAnchor);
-            Vector3 anchorEnd = m_PreDiveSpawnWorldPos;
-            Vector3 endPos = m_PreDiveSplatWorldPos;
-            Quaternion endRot = m_PreDiveSplatWorldRot;
+            Vector3 anchorEnd = m_Rig
+                ? m_Rig.TransformPoint(m_PreDiveSpawnLocalToRig)
+                : m_PreDiveSpawnLocalToRig;
 
             float t = 0f;
             bool flipped = false;
@@ -547,8 +583,8 @@ namespace GardenMR
                 Vector3 anchor = Vector3.Lerp(anchorStart, anchorEnd, ease);
 
                 m_SplatRoot.localScale = Vector3.Scale(m_ScaleSign, Vector3.one * mag);
-                m_SplatRoot.rotation = rot;
-                m_SplatRoot.position = SplatPositionForAnchor(anchor, rot, m_DiveLocalAnchor, mag);
+                m_SplatRoot.rotation = endRot;
+                m_SplatRoot.position = SplatPositionForAnchor(anchor, endRot, m_DiveLocalAnchor, mag);
 
                 float bell = 1f - Mathf.Abs(ease - 0.5f) * 2f;
                 SetVignette(Mathf.Lerp(m_ApertureOpen, m_ApertureClosedMin, bell));
@@ -563,15 +599,14 @@ namespace GardenMR
                 yield return null;
             }
 
-            // Exact restore of the desk pose, then re-parent under the (unmoved) Place rig.
-            m_SplatRoot.SetParent(null, true);
-            m_SplatRoot.SetPositionAndRotation(endPos, endRot);
-            m_SplatRoot.localScale = Vector3.Scale(m_ScaleSign, Vector3.one * targetMag);
+            // Re-attach under GardenMRRig and restore the exact local pose captured at Dive.
             if (m_Rig)
-                m_SplatRoot.SetParent(m_Rig, true);
-
-            if (m_HandleRig)
-                m_HandleRig.SnapToScale(targetMag);
+                m_SplatRoot.SetParent(m_Rig, false);
+            else
+                m_SplatRoot.SetParent(null, false);
+            m_SplatRoot.localPosition = m_PreDiveSplatLocalPos;
+            m_SplatRoot.localRotation = m_PreDiveSplatLocalRot;
+            m_SplatRoot.localScale = m_PreDiveSplatLocalScale;
 
             SetVignette(m_ApertureOpen);
             EnterPlace();
