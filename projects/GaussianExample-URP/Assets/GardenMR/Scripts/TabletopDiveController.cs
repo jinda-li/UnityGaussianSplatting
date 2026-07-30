@@ -56,6 +56,19 @@ namespace GardenMR
 
         public float m_DefaultTableScale = 0.0375f;
 
+        [Header("Auto place on start")]
+        [Tooltip("Move GardenMRRig in front of the player at startup instead of using the scene-authored pose.")]
+        public bool m_AutoPlaceOnStart = true;
+        [Tooltip("Horizontal distance from the headset, in meters.")]
+        public float m_PlaceDistance = 0.8f;
+        [Tooltip("Tabletop height above the tracking floor (XR Origin), in meters.")]
+        public float m_PlaceHeight = 0.75f;
+        [Tooltip("Extra yaw applied on top of facing the player, in degrees.")]
+        public float m_PlaceYawOffset;
+        [Tooltip("Seconds to wait for the headset to report a real pose before placing. " +
+                 "Placement happens as soon as a tracked pose arrives, or when this elapses.")]
+        public float m_PlaceTrackingTimeout = 1f;
+
         [Header("MR passthrough")]
         public ARCameraManager m_ArCameraManager;
         public ARCameraBackground m_ArCameraBackground;
@@ -206,11 +219,55 @@ namespace GardenMR
 
         void Start()
         {
-            // Use the scene-authored GardenMRRig pose — no auto place in front of the player.
             if (m_HandleRig)
                 m_HandleRig.InitializeFromScene();
             SetMagnitude(m_DefaultTableScale);
             EnterPlace();
+            if (m_AutoPlaceOnStart)
+                StartCoroutine(AutoPlaceRoutine());
+        }
+
+        // The HMD pose is not available on the first frames of a session (the camera still sits at
+        // the XR Origin), so placing immediately would pin the miniature to a stale forward vector.
+        IEnumerator AutoPlaceRoutine()
+        {
+            float deadline = Time.unscaledTime + Mathf.Max(0f, m_PlaceTrackingTimeout);
+            while (Time.unscaledTime < deadline && !HasTrackedHeadPose())
+                yield return null;
+            PlaceRigInFrontOfPlayer();
+        }
+
+        bool HasTrackedHeadPose()
+        {
+            if (!m_XrCamera)
+                return true; // nothing better to wait for
+            // Untracked, the camera transform stays exactly at its authored local pose under the rig.
+            return m_XrCamera.transform.localPosition.sqrMagnitude > 1e-6f;
+        }
+
+        // Drops GardenMRRig on an imaginary table in front of the headset, facing the player.
+        // Public so a UI button / debug key can re-center it later.
+        public void PlaceRigInFrontOfPlayer()
+        {
+            if (!m_Rig || !m_XrCamera || CurrentState != State.Place)
+                return;
+
+            var head = m_XrCamera.transform;
+            Vector3 forward = head.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 1e-6f)
+                forward = Vector3.ProjectOnPlane(head.up, Vector3.up); // looking straight up/down
+            forward.Normalize();
+
+            ResolveXrOrigin();
+            float floorY = m_XrOrigin ? m_XrOrigin.position.y : 0f;
+
+            Vector3 pos = head.position + forward * m_PlaceDistance;
+            pos.y = floorY + m_PlaceHeight;
+
+            m_Rig.SetPositionAndRotation(
+                pos,
+                Quaternion.Euler(0f, Quaternion.LookRotation(forward, Vector3.up).eulerAngles.y + m_PlaceYawOffset, 0f));
         }
 
         void LateUpdate()
