@@ -42,6 +42,12 @@ namespace StylizedSplats
         [Tooltip("Editor-only: skip Base Saturation/Base Lift and show every splat as if fully painted, to preview the post-spray stylized look")]
         public bool m_PreviewPainted;
 
+        [Header("Size Cull")]
+        [Tooltip("Hide splats whose world-space size exceeds Size Cull Max. Independent of Stylized Enable")]
+        public bool m_SizeCullEnable;
+        [Tooltip("World-space splat size above which splats are hidden entirely")]
+        public float m_SizeCullMax = 1f;
+
         GraphicsBuffer m_PaintProgress;
         int m_PaintProgressCount;
 
@@ -139,6 +145,8 @@ namespace StylizedSplats
             Shader.SetGlobalFloat(Props.BaseSaturation, m_BaseSaturation);
             Shader.SetGlobalFloat(Props.BaseLift, m_BaseLift);
             Shader.SetGlobalFloat(Props.PreviewPainted, m_PreviewPainted ? 1f : 0f);
+            Shader.SetGlobalFloat(Props.SizeCullEnable, m_SizeCullEnable ? 1f : 0f);
+            Shader.SetGlobalFloat(Props.SizeCullMax, m_SizeCullMax);
             if (m_BrushTexture != null)
                 Shader.SetGlobalTexture(Props.StylizedBrushTex, m_BrushTexture);
 
@@ -217,6 +225,8 @@ namespace StylizedSplats
             public const string BaseSaturation = "_BaseSaturation";
             public const string BaseLift = "_BaseLift";
             public const string PreviewPainted = "_StylizedPreviewPainted";
+            public const string SizeCullEnable = "_SizeCullEnable";
+            public const string SizeCullMax = "_SizeCullMax";
             public const string StylizedBrushTex = "_StylizedBrushTex";
             public const string SplatPaintProgress = "_SplatPaintProgress";
             public const string SplatPaintValid = "_SplatPaintValid";

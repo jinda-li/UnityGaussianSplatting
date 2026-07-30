@@ -41,6 +41,10 @@ float _BaseSaturation;
 float _BaseLift;
 float _StylizedPreviewPainted;
 
+// size-cull extension globals (independent of _StylizedEnable)
+float _SizeCullEnable;
+float _SizeCullMax;
+
 Texture2D _StylizedBrushTex;
 SamplerState sampler_StylizedBrushTex;
 
@@ -114,6 +118,19 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
         float2 axis1 = view.axis1, axis2 = view.axis2;
         bool revealDiscard = false;
 
+        // world-space splat size, needed by both the stylize gradient and the
+        // size-cull feature below; computed once and shared between them.
+        float worldSize = 0;
+        bool sizeCullDiscard = false;
+        if (_StylizedEnable != 0 || _SizeCullEnable != 0)
+        {
+            SplatData splat = LoadSplatData(instID);
+            float worldScale = length(unity_ObjectToWorld._m00_m10_m20);
+            worldSize = max(max(splat.scale.x, splat.scale.y), splat.scale.z) * worldScale;
+        }
+        if (_SizeCullEnable != 0 && worldSize > _SizeCullMax)
+            sizeCullDiscard = true;
+
         // _StylizedEnable == 0 must stay pixel-identical to the stock shader,
         // so all of the new behavior is gated behind it.
         float styleAmount = 1; // 1 = full gaussian (stock look)
@@ -132,9 +149,6 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
                 paint = 1; // editor preview: skip base saturation/lift entirely
             o.col.rgb = lerp(baseCol, o.col.rgb, saturate(paint));
 
-            SplatData splat = LoadSplatData(instID);
-            float worldScale = length(unity_ObjectToWorld._m00_m10_m20);
-            float worldSize = max(max(splat.scale.x, splat.scale.y), splat.scale.z) * worldScale;
             styleAmount = SmoothStepEdge(_StyleSizeMin, _StyleSizeMax, worldSize);
         }
 
@@ -241,7 +255,7 @@ v2f vert (uint vtxID : SV_VertexID, uint instID : SV_InstanceID)
             }
         }
 
-        if (revealDiscard)
+        if (revealDiscard || sizeCullDiscard)
             o.vertex = asfloat(0x7fc00000); // NaN discards the primitive
     }
     FlipProjectionIfBackbuffer(o.vertex);
