@@ -53,6 +53,7 @@ namespace VRPlayer
 
         public float GetBackwardsSnap() => backwardSnapBackMeters;
         public Vector3 GetAvatarRootPosition() => avatarRoot.position;
+        public Transform XrOrigin => xrOrigin;
 
         private void OnEnable()
         {

@@ -49,6 +49,11 @@ namespace GardenMR
                  "disabled too or the avatar free-falls while the collision proxy is off.")]
         public Behaviour m_RootMotionController;
 
+        [Tooltip("Tracking-space root (XR Origin). Joystick locomotion moves it, which shifts the real room " +
+                 "relative to the virtual world; Return puts it back so the miniature lands on the physical " +
+                 "table again. Auto-resolved from the locomotion rig when left empty.")]
+        public Transform m_XrOrigin;
+
         public float m_DefaultTableScale = 0.0375f;
 
         [Header("MR passthrough")]
@@ -110,6 +115,7 @@ namespace GardenMR
                 m_VignetteMaterialInstance = m_VignetteRenderer.material; // instance, safe to mutate
 
             EnsureCameraData();
+            ResolveXrOrigin();
 
             EnsureVrReturnBindings();
             EnsureXRInteractionManager();
@@ -121,6 +127,20 @@ namespace GardenMR
         {
             if (!m_CameraData && m_XrCamera)
                 m_CameraData = m_XrCamera.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+        }
+
+        void ResolveXrOrigin()
+        {
+            if (m_XrOrigin)
+                return;
+            if (m_LocomotionComponent is VRPlayerLocomotionStateMachine sm && sm.CameraRig)
+                m_XrOrigin = sm.CameraRig.XrOrigin;
+            if (!m_XrOrigin && m_XrCamera)
+            {
+                var origin = m_XrCamera.GetComponentInParent<Unity.XR.CoreUtils.XROrigin>();
+                if (origin)
+                    m_XrOrigin = origin.transform;
+            }
         }
 
         static void EnsureXRInteractionManager()
@@ -461,6 +481,13 @@ namespace GardenMR
         Vector3 m_PreDiveSpawnLocalToRig; // spawn point in GardenMRRig local space
         Vector3 m_DiveLocalAnchor; // spawn in splat-local (unscaled) space; used during Dive grow
 
+        // Tracking space at Dive time. Locomotion moves the XR Origin, i.e. it moves the whole real
+        // room relative to world coordinates; the tabletop rig stays put, so on Return the miniature
+        // would reappear next to wherever the player walked instead of on the physical table.
+        bool m_HasPreDiveOriginPose;
+        Vector3 m_PreDiveOriginPos;
+        Quaternion m_PreDiveOriginRot;
+
         public void Dive(SplatSpawnPoint point)
         {
             if (CurrentState != State.Place || !point || !m_SplatRoot)
@@ -475,6 +502,11 @@ namespace GardenMR
             m_PreDiveSpawnLocalToRig = m_Rig
                 ? m_Rig.InverseTransformPoint(point.transform.position)
                 : point.transform.position;
+
+            ResolveXrOrigin();
+            m_HasPreDiveOriginPose = m_XrOrigin;
+            if (m_HasPreDiveOriginPose)
+                m_XrOrigin.GetPositionAndRotation(out m_PreDiveOriginPos, out m_PreDiveOriginRot);
 
             m_Routine = StartCoroutine(DiveRoutine(point.transform.position));
         }
@@ -553,6 +585,7 @@ namespace GardenMR
             PlayTransition();
             SetRigGrabEnabled(false);
             SetGardenAmbience(false);
+            StopCameraRigCatchUp();
             SetAvatar(false);
             SetActive(m_CollisionProxy, false);
 
@@ -592,6 +625,8 @@ namespace GardenMR
                 if (!flipped && ease >= 0.5f)
                 {
                     flipped = true;
+                    // Vignette is at its tightest here, so the tracking-space jump stays hidden.
+                    RestoreXrOriginPose();
                     SetCutout(true);
                     SetPassthrough(true);
                 }
@@ -608,9 +643,30 @@ namespace GardenMR
             m_SplatRoot.localRotation = m_PreDiveSplatLocalRot;
             m_SplatRoot.localScale = m_PreDiveSplatLocalScale;
 
+            RestoreXrOriginPose();
+            m_HasPreDiveOriginPose = false;
+
             SetVignette(m_ApertureOpen);
             EnterPlace();
             m_Routine = null;
+        }
+
+        // Undo the locomotion drift of tracking space, so passthrough lines up with the room the way
+        // it did before the Dive and the miniature is back on the physical table.
+        void RestoreXrOriginPose()
+        {
+            if (!m_HasPreDiveOriginPose || !m_XrOrigin)
+                return;
+            m_XrOrigin.SetPositionAndRotation(m_PreDiveOriginPos, m_PreDiveOriginRot);
+        }
+
+        // The locomotion state machine gets switched off mid-stride, which leaves the camera rig's
+        // orbit catch-up believing it is still locomoting: it would keep dragging the XR Origin
+        // toward a disabled avatar during Return and in Place mode.
+        void StopCameraRigCatchUp()
+        {
+            if (m_LocomotionComponent is VRPlayerLocomotionStateMachine sm)
+                sm.CameraRig?.SetLocomotionState(false);
         }
     }
 }

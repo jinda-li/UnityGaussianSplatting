@@ -1199,6 +1199,7 @@ MonoBehaviour:
   m_LocomotionComponent: {fileID: 1462234993}
   m_AvatarRoot: {fileID: 1767152434}
   m_RootMotionController: {fileID: 305766018}
+  m_XrOrigin: {fileID: 0}
   m_DefaultTableScale: 0.0375
   m_ArCameraManager: {fileID: 1380530101}
   m_ArCameraBackground: {fileID: 1380530100}
@@ -1731,7 +1732,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c12d929a7f62c48adbe9ff45c9a33ff0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Asset: {fileID: 11400000, guid: 67102e62f46541d47a2db59b000e0fb0, type: 2}
+  m_Asset: {fileID: 11400000, guid: a99a0ef4edf2985489227d38ccc258f1, type: 2}
   m_RenderOrder: 0
   m_SplatScale: 0.598
   m_OpacityScale: 1.47
