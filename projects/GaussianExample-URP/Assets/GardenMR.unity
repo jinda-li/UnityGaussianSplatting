@@ -124,6 +124,19 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1935388251399753374, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
   m_PrefabInstance: {fileID: 81792502721281065}
   m_PrefabAsset: {fileID: 0}
+--- !u!134 &24919696
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ' (Instance)'
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!1 &38272072
 GameObject:
   m_ObjectHideFlags: 0
@@ -175,8 +188,6 @@ MonoBehaviour:
   m_HandleFrame: {fileID: 38272073}
   m_MoveHandle: {fileID: 1314183434}
   m_ScaleHandle: {fileID: 1974337851}
-  m_RigGrab: {fileID: 1863419794}
-  m_HandleLift: 0.02
 --- !u!1 &132483819
 GameObject:
   m_ObjectHideFlags: 0
@@ -255,9 +266,9 @@ Transform:
   m_GameObject: {fileID: 138778816}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2, y: -1.32, z: 1.4}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalPosition: {x: -1.74, y: 0, z: 3.76}
+  m_LocalScale: {x: 0.39, y: 0.39, z: 0.39}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 643888093}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -274,7 +285,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GardenMR.SplatSpawnPoint
   m_Controller: {fileID: 1146533591}
-  m_TriggerCollider: {fileID: 138778822}
+  m_Interactable: {fileID: 138778824}
   m_Visual: {fileID: 138778821}
   m_IdleColor: {r: 0.25898895, g: 0.45968315, b: 0.6603774, a: 0.55}
   m_HoverColor: {r: 1, g: 0.95, b: 0.6, a: 0.9}
@@ -290,7 +301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d563c4f76e1a9754f8249805c796399b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GardenMR.ConstantWorldScale
-  m_WorldSize: 0.05
+  m_WorldSize: 0.08
   m_Reference: {fileID: 0}
 --- !u!23 &138778821
 MeshRenderer:
@@ -348,7 +359,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 138778816}
-  m_Material: {fileID: 198237444}
+  m_Material: {fileID: 384593641}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -356,7 +367,7 @@ SphereCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -370,46 +381,81 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 138778816}
   m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
---- !u!54 &138778824
-Rigidbody:
+--- !u!114 &138778824
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 138778816}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 0
-  m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
---- !u!134 &198237444
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a35f6cfbfba9b548aaa00d52cfe8a50, type: 3}
   m_Name: 
-  serializedVersion: 2
-  m_DynamicFriction: 0.6
-  m_StaticFriction: 0.6
-  m_Bounciness: 0
-  m_FrictionCombine: 0
-  m_BounceCombine: 0
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable
+  m_InteractionManager: {fileID: 0}
+  m_Colliders:
+  - {fileID: 138778822}
+  m_InteractionLayers:
+    m_Bits: 1
+  m_DistanceCalculationMode: 1
+  m_SelectMode: 0
+  m_FocusMode: 1
+  m_CustomReticle: {fileID: 0}
+  m_AllowGazeInteraction: 0
+  m_AllowGazeSelect: 0
+  m_OverrideGazeTimeToSelect: 0
+  m_GazeTimeToSelect: 0.5
+  m_OverrideTimeToAutoDeselectGaze: 0
+  m_TimeToAutoDeselectGaze: 3
+  m_AllowGazeAssistance: 0
+  m_FirstHoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastHoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_HoverExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstSelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastSelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_SelectExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FirstFocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_LastFocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusEntered:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FocusExited:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Activated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Deactivated:
+    m_PersistentCalls:
+      m_Calls: []
+  m_StartingHoverFilters: []
+  m_StartingSelectFilters: []
+  m_StartingInteractionStrengthFilters: []
+  m_AutoFindParentInteractableInHierarchy: 0
+  m_ParentInteractableObject: {fileID: 0}
 --- !u!1 &199391320
 GameObject:
   m_ObjectHideFlags: 0
@@ -707,6 +753,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 152ac51f5159ece4baee14bd2a72990c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRPlayer.VRPlayerRootMotionController
+--- !u!134 &384593641
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ' (Instance) (Instance)'
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!23 &418034744 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 8429981633443581380, guid: 6c8af5c8012f01440af6cb2bc3eb987c, type: 3}
@@ -820,19 +879,6 @@ Transform:
   - {fileID: 138778817}
   m_Father: {fileID: 1609192435}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!134 &757383750
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 2
-  m_DynamicFriction: 0.6
-  m_StaticFriction: 0.6
-  m_Bounciness: 0
-  m_FrictionCombine: 0
-  m_BounceCombine: 0
 --- !u!1001 &922546951
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1153,10 +1199,7 @@ MonoBehaviour:
   m_LocomotionComponent: {fileID: 1462234993}
   m_AvatarRoot: {fileID: 1767152434}
   m_RootMotionController: {fileID: 305766018}
-  m_AutoPlaceOnStart: 1
   m_DefaultTableScale: 0.0375
-  m_PlaceForwardDistance: 0.8
-  m_PlaceHeight: 0.85
   m_ArCameraManager: {fileID: 1380530101}
   m_ArCameraBackground: {fileID: 1380530100}
   m_XrCamera: {fileID: 1380530099}
@@ -1183,6 +1226,14 @@ MonoBehaviour:
       m_Groups: 
       m_Action: DiveToSpawn
       m_Flags: 0
+    - m_Name: 
+      m_Id: 703d7bb2-38cf-4715-91e9-04691d3d8975
+      m_Path: <XRController>{LeftHand}/primaryButton
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: DiveToSpawn
+      m_Flags: 0
     m_Flags: 0
   m_ReturnAction:
     m_Name: ReturnToTabletop
@@ -1195,6 +1246,14 @@ MonoBehaviour:
     - m_Name: 
       m_Id: 85392762-81ce-4d49-a45b-698d8dea3722
       m_Path: <Keyboard>/r
+      m_Interactions: 
+      m_Processors: 
+      m_Groups: 
+      m_Action: ReturnToTabletop
+      m_Flags: 0
+    - m_Name: 
+      m_Id: cf76cbfd-5d11-4a69-bdb2-8d4e264665a1
+      m_Path: <XRController>{LeftHand}/secondaryButton
       m_Interactions: 
       m_Processors: 
       m_Groups: 
@@ -1468,8 +1527,6 @@ GameObject:
   - component: {fileID: 1314183438}
   - component: {fileID: 1314183436}
   - component: {fileID: 1314183439}
-  - component: {fileID: 1314183441}
-  - component: {fileID: 1314183440}
   m_Layer: 0
   m_Name: MoveHandle
   m_TagString: Untagged
@@ -1486,7 +1543,7 @@ Transform:
   m_GameObject: {fileID: 1314183433}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.27, y: 0, z: -8.99}
+  m_LocalPosition: {x: 0.94, y: 0, z: 0.36}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -1556,7 +1613,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1314183433}
-  m_Material: {fileID: 1318094642}
+  m_Material: {fileID: 1839680750}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1570,109 +1627,6 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &1314183440
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314183433}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fd7642305d55ca249a9899c0954ee379, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GardenMR.SplatMoveHandle
-  m_Interactable: {fileID: 1314183441}
-  m_Rig: {fileID: 1863419792}
-  m_AllowYawRotation: 1
---- !u!114 &1314183441
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1314183433}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a35f6cfbfba9b548aaa00d52cfe8a50, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable
-  m_InteractionManager: {fileID: 0}
-  m_Colliders:
-  - {fileID: 1314183439}
-  m_InteractionLayers:
-    m_Bits: 1
-  m_DistanceCalculationMode: 1
-  m_SelectMode: 0
-  m_FocusMode: 1
-  m_CustomReticle: {fileID: 0}
-  m_AllowGazeInteraction: 0
-  m_AllowGazeSelect: 0
-  m_OverrideGazeTimeToSelect: 0
-  m_GazeTimeToSelect: 0.5
-  m_OverrideTimeToAutoDeselectGaze: 0
-  m_TimeToAutoDeselectGaze: 3
-  m_AllowGazeAssistance: 0
-  m_FirstHoverEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_LastHoverExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_HoverEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_HoverExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FirstSelectEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_LastSelectExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_SelectEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_SelectExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FirstFocusEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_LastFocusExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FocusEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  m_FocusExited:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Activated:
-    m_PersistentCalls:
-      m_Calls: []
-  m_Deactivated:
-    m_PersistentCalls:
-      m_Calls: []
-  m_StartingHoverFilters: []
-  m_StartingSelectFilters: []
-  m_StartingInteractionStrengthFilters: []
-  m_AutoFindParentInteractableInHierarchy: 0
-  m_ParentInteractableObject: {fileID: 0}
---- !u!134 &1318094642
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: ' (Instance)'
-  serializedVersion: 2
-  m_DynamicFriction: 0.6
-  m_StaticFriction: 0.6
-  m_Bounciness: 0
-  m_FrictionCombine: 0
-  m_BounceCombine: 0
 --- !u!1 &1380530094 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 6725351849040876674, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
@@ -1777,10 +1731,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c12d929a7f62c48adbe9ff45c9a33ff0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Asset: {fileID: 11400000, guid: 67102e62f46541d47a2db59b000e0fb0, type: 2}
+  m_Asset: {fileID: 11400000, guid: bfbe357cbadecb848bbf2cfd11f58675, type: 2}
   m_RenderOrder: 0
-  m_SplatScale: 0.661
-  m_OpacityScale: 1.57
+  m_SplatScale: 0.532
+  m_OpacityScale: 1.22
   m_SHOrder: 0
   m_SHOnly: 0
   m_SortNthFrame: 1
@@ -1974,6 +1928,19 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8490604556990209970, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
   m_PrefabInstance: {fileID: 81792502721281065}
   m_PrefabAsset: {fileID: 0}
+--- !u!134 &1839680750
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: ' (Instance) (Instance)'
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!1 &1863419791
 GameObject:
   m_ObjectHideFlags: 0
@@ -1985,6 +1952,7 @@ GameObject:
   - component: {fileID: 1863419792}
   - component: {fileID: 1863419795}
   - component: {fileID: 1863419794}
+  - component: {fileID: 1863419796}
   - component: {fileID: 1863419793}
   m_Layer: 0
   m_Name: GardenMRRig
@@ -2030,13 +1998,14 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1863419791}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ad34abafad169848a38072baa96cdb2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable
   m_InteractionManager: {fileID: 0}
-  m_Colliders: []
+  m_Colliders:
+  - {fileID: 1314183439}
   m_InteractionLayers:
     m_Bits: 1
   m_DistanceCalculationMode: 1
@@ -2144,7 +2113,9 @@ MonoBehaviour:
   m_ThrowAngularVelocityScale: 1
   m_ForceGravityOnDetach: 0
   m_RetainTransformParent: 1
-  m_StartingSingleGrabTransformers: []
+  m_StartingSingleGrabTransformers:
+  - {fileID: 1863419796}
+  - {fileID: 1863419793}
   m_StartingMultipleGrabTransformers: []
   m_AddDefaultGrabTransformers: 1
   m_FarAttachMode: 0
@@ -2179,6 +2150,29 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1863419796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1863419791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0a1302d0d134fa8a2a5b3bf4aec3c20, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Transformers.XRGeneralGrabTransformer
+  m_PermittedDisplacementAxes: 7
+  m_ConstrainedAxisDisplacementMode: 1
+  m_TwoHandedRotationMode: 1
+  m_AllowOneHandedScaling: 0
+  m_AllowTwoHandedScaling: 0
+  m_OneHandedScaleSpeed: 0.5
+  m_ThresholdMoveRatioForScale: 0.05
+  m_ClampScaling: 1
+  m_MinimumScaleRatio: 0.25
+  m_MaximumScaleRatio: 2
+  m_ScaleMultiplier: 0.25
 --- !u!114 &1911954385
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2223,7 +2217,7 @@ Transform:
   m_GameObject: {fileID: 1974337850}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 7.78, y: 0, z: -9.44}
+  m_LocalPosition: {x: -0.385, y: 0, z: 0.366}
   m_LocalScale: {x: 0.1, y: 0.1, z: 0.1}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -2385,7 +2379,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1974337850}
-  m_Material: {fileID: 757383750}
+  m_Material: {fileID: 24919696}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0

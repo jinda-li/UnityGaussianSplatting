@@ -559,7 +559,7 @@ MonoBehaviour:
     m_ManualQueueValue: 0
     m_ManualQueueTargetFrame: 0
   m_SelectActionTrigger: 1
-  m_AllowHoveredActivate: 0
+  m_AllowHoveredActivate: 1
   m_TargetPriorityMode: 0
   m_HideControllerOnSelect: 0
   m_InputCompatibilityMode: 0
@@ -1237,6 +1237,10 @@ PrefabInstance:
     - target: {fileID: 3361304732106587920, guid: 030a6b8319f0f994c9d7fe465c12ffca, type: 3}
       propertyPath: m_LocalPosition.z
       value: 0.201
+      objectReference: {fileID: 0}
+    - target: {fileID: 3545939077091443525, guid: 030a6b8319f0f994c9d7fe465c12ffca, type: 3}
+      propertyPath: m_AllowHoveredActivate
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5217770947759795913, guid: 030a6b8319f0f994c9d7fe465c12ffca, type: 3}
       propertyPath: m_IsActive

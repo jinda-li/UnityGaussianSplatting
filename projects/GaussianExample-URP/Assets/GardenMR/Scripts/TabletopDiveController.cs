@@ -48,10 +48,7 @@ namespace GardenMR
                  "disabled too or the avatar free-falls while the collision proxy is off.")]
         public Behaviour m_RootMotionController;
 
-        public bool m_AutoPlaceOnStart = true;
         public float m_DefaultTableScale = 0.0375f;
-        public float m_PlaceForwardDistance = 0.8f;
-        public float m_PlaceHeight = 0.85f;
 
         [Header("MR passthrough")]
         public ARCameraManager m_ArCameraManager;
@@ -188,9 +185,7 @@ namespace GardenMR
 
         void Start()
         {
-            if (m_AutoPlaceOnStart)
-                PlaceRigInFrontOfPlayer();
-
+            // Use the scene-authored GardenMRRig pose — no auto place in front of the player.
             if (m_HandleRig)
                 m_HandleRig.InitializeFromScene();
             SetMagnitude(m_DefaultTableScale);
@@ -221,22 +216,6 @@ namespace GardenMR
 
         // ---- setup ----
 
-        void PlaceRigInFrontOfPlayer()
-        {
-            if (!m_Rig || !m_PlayerFeet)
-                return;
-            Vector3 fwd = m_PlayerFeet.forward;
-            fwd.y = 0f;
-            if (fwd.sqrMagnitude < 1e-4f)
-                fwd = Vector3.forward;
-            fwd.Normalize();
-
-            Vector3 pos = m_PlayerFeet.position + fwd * m_PlaceForwardDistance;
-            pos.y = FootY(m_PlayerFeet) + m_PlaceHeight;
-            m_Rig.position = pos;
-            m_Rig.rotation = Quaternion.LookRotation(-fwd, Vector3.up); // face the player
-        }
-
         static float FootY(Transform playerRoot)
         {
             var cc = playerRoot.GetComponentInChildren<CharacterController>();
@@ -256,7 +235,7 @@ namespace GardenMR
         void SetMagnitude(float magnitude)
         {
             if (m_HandleRig)
-                m_HandleRig.ApplyScale(magnitude);
+                m_HandleRig.ApplyScaleKeepRig(magnitude);
             else if (m_SplatRoot)
                 m_SplatRoot.localScale = Vector3.Scale(m_ScaleSign, Vector3.one * magnitude);
         }
@@ -283,6 +262,8 @@ namespace GardenMR
             // CharacterController spends a frame falling through the removed proxy.
             SetAvatar(false);
             SetActive(m_CollisionProxy, false);
+            // Asset Plane MeshCollider under the splat blocks XR rays to SpawnPoint in Place.
+            SetSplatGroundColliders(false);
             SetCutout(true);
             SetPassthrough(true);
             SetVignette(m_ApertureOpen);
@@ -299,11 +280,31 @@ namespace GardenMR
             // Ground first, then re-enable the body: the CharacterController must have
             // something to land on the very first frame gravity runs again.
             SetActive(m_CollisionProxy, true);
+            SetSplatGroundColliders(true);
             Physics.SyncTransforms();
             SetAvatar(true);
             SnapCameraToFirstPerson();
             SetVignette(m_ApertureOpen);
             SetGardenAmbience(true);
+        }
+
+        // Mute large ground meshes (e.g. GaussianSplats/Plane) in Place so XR rays can hit
+        // SpawnPoint. Re-enable them in Immersive so the player can walk on the floor.
+        void SetSplatGroundColliders(bool enabled)
+        {
+            if (!m_SplatRoot)
+                return;
+            foreach (var col in m_SplatRoot.GetComponentsInChildren<Collider>(true))
+            {
+                if (!col)
+                    continue;
+                // Keep spawn orbs / place handles independently managed.
+                if (col.GetComponentInParent<SplatSpawnPoint>())
+                    continue;
+                if (col.GetComponentInParent<SplatScaleHandle>())
+                    continue;
+                col.enabled = enabled;
+            }
         }
 
         // Re-enabling the locomotion state machine does not re-run Idle.Enter() when it was

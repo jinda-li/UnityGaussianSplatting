@@ -1,19 +1,20 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Filtering;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 namespace GardenMR
 {
-    // Dive spawn marker inside the splat scene. Highlights when a controller enters the
-    // trigger volume; pulling the trigger while inside starts Dive (not ray/grab select).
+    // Spawn marker inside the miniature. Ray hover highlights; controller trigger
+    // (Activate) starts Dive. Grip (Select) is rejected so it never steals grabs.
+    // Requires NearFarInteractor.allowHoveredActivate so Activate works without Select.
     [RequireComponent(typeof(ConstantWorldScale))]
     public class SplatSpawnPoint : MonoBehaviour
     {
         public TabletopDiveController m_Controller;
 
-        [Header("Trigger volume")]
-        [Tooltip("Collider used as the poke/trigger zone. Defaults to SphereCollider on this object.")]
-        public Collider m_TriggerCollider;
+        [Tooltip("Interactable that reports hover/activate. Defaults to one on this object.")]
+        public XRBaseInteractable m_Interactable;
 
         [Header("Hover feedback")]
         public Renderer m_Visual;
@@ -21,79 +22,74 @@ namespace GardenMR
         public Color m_HoverColor = new Color(1f, 0.95f, 0.6f, 0.9f);
 
         static readonly int k_BaseColor = Shader.PropertyToID("_BaseColor");
-
-        readonly HashSet<XRBaseInputInteractor> m_InsideInteractors = new();
-        bool m_WasSelectActive;
+        XRSelectFilterDelegate m_RejectSelectFilter;
 
         void Awake()
         {
-            EnsureTriggerVolume();
+            if (!m_Interactable)
+                m_Interactable = GetComponent<XRBaseInteractable>();
+            RegisterCollider();
+            // Non-trigger so XR ray / sphere cast can hit it.
+            var col = GetComponent<Collider>();
+            if (col)
+                col.isTrigger = false;
             ApplyColor(m_IdleColor);
+
+            // Block grip/select so MoveHandle grabs and other selects are never stolen.
+            if (m_Interactable)
+            {
+                m_RejectSelectFilter = new XRSelectFilterDelegate((_, __) => false);
+                m_Interactable.selectFilters.Add(m_RejectSelectFilter);
+            }
         }
 
-        void EnsureTriggerVolume()
+        void RegisterCollider()
         {
-            if (!m_TriggerCollider)
-                m_TriggerCollider = GetComponent<Collider>();
-            if (!m_TriggerCollider)
+            if (!m_Interactable)
+                return;
+            var col = GetComponent<Collider>();
+            if (!col)
             {
                 var sphere = gameObject.AddComponent<SphereCollider>();
                 sphere.radius = 0.5f;
-                m_TriggerCollider = sphere;
+                col = sphere;
             }
-            m_TriggerCollider.isTrigger = true;
-
-            // At least one side of a trigger pair needs a Rigidbody.
-            var rb = GetComponent<Rigidbody>();
-            if (!rb)
-                rb = gameObject.AddComponent<Rigidbody>();
-            rb.isKinematic = true;
-            rb.useGravity = false;
+            if (!m_Interactable.colliders.Contains(col))
+                m_Interactable.colliders.Add(col);
         }
 
-        void OnTriggerEnter(Collider other)
+        void OnEnable()
         {
-            var interactor = other.GetComponentInParent<XRBaseInputInteractor>();
-            if (interactor)
-                m_InsideInteractors.Add(interactor);
-            UpdateHoverVisual();
-        }
-
-        void OnTriggerExit(Collider other)
-        {
-            var interactor = other.GetComponentInParent<XRBaseInputInteractor>();
-            if (interactor)
-                m_InsideInteractors.Remove(interactor);
-            UpdateHoverVisual();
-        }
-
-        void Update()
-        {
-            if (m_InsideInteractors.Count == 0)
-            {
-                m_WasSelectActive = false;
+            if (!m_Interactable)
                 return;
-            }
-
-            bool selectActive = false;
-            foreach (var interactor in m_InsideInteractors)
-            {
-                if (!interactor)
-                    continue;
-                if (interactor.isSelectActive)
-                {
-                    selectActive = true;
-                    break;
-                }
-            }
-
-            if (selectActive && !m_WasSelectActive && m_Controller)
-                m_Controller.Dive(this);
-            m_WasSelectActive = selectActive;
+            m_Interactable.hoverEntered.AddListener(OnHoverEntered);
+            m_Interactable.hoverExited.AddListener(OnHoverExited);
+            m_Interactable.activated.AddListener(OnActivated);
         }
 
-        void UpdateHoverVisual() =>
-            ApplyColor(m_InsideInteractors.Count > 0 ? m_HoverColor : m_IdleColor);
+        void OnDisable()
+        {
+            if (!m_Interactable)
+                return;
+            m_Interactable.hoverEntered.RemoveListener(OnHoverEntered);
+            m_Interactable.hoverExited.RemoveListener(OnHoverExited);
+            m_Interactable.activated.RemoveListener(OnActivated);
+        }
+
+        void OnDestroy()
+        {
+            if (m_Interactable && m_RejectSelectFilter != null)
+                m_Interactable.selectFilters.Remove(m_RejectSelectFilter);
+        }
+
+        void OnHoverEntered(HoverEnterEventArgs args) => ApplyColor(m_HoverColor);
+        void OnHoverExited(HoverExitEventArgs args) => ApplyColor(m_IdleColor);
+
+        void OnActivated(ActivateEventArgs args)
+        {
+            if (m_Controller)
+                m_Controller.Dive(this);
+        }
 
         void ApplyColor(Color c)
         {
