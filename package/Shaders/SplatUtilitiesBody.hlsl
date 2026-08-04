@@ -12,12 +12,28 @@ RWStructuredBuffer<uint> _SplatSortDistances;
 RWStructuredBuffer<uint> _SplatSortKeys;
 uint _SplatCount;
 
+// Reduced-precision sort key support (see GpuSorting.DispatchDeviceRadixSort). 0 = disabled (full 32-bit
+// key via FloatToSortableUint). Non-zero = quantize view-space Z linearly into that many bits, using the
+// per-frame view-space bounds below, so DeviceRadixSort only needs to run keyBits/8 passes instead of 4.
+int _SortKeyBits;
+float _SortKeyMinZ;
+float _SortKeyMaxZ;
+
 // radix sort etc. friendly, see http://stereopsis.com/radix.html
 uint FloatToSortableUint(float f)
 {
     uint fu = asuint(f);
     uint mask = -((int)(fu >> 31)) | 0x80000000;
     return fu ^ mask;
+}
+
+// Linear quantization is fine here (unlike FloatToSortableUint's IEEE-754 bit trick): the value is already
+// a plain uint, monotonic in z, ties within a bucket are visually indistinguishable at this bucket density
+// (65536 buckets across the splat's view-space Z extent -- see docs/splat-asset-split-plan.md §0.5.1/§1(step 1)).
+uint DepthToSortKey16(float z, float zMin, float zMax)
+{
+    float t = saturate((z - zMin) / max(zMax - zMin, 1.0e-5));
+    return (uint)(t * 65535.0 + 0.5);
 }
 
 [numthreads(GROUP_SIZE,1,1)]
@@ -42,7 +58,8 @@ void CSCalcDistances (uint3 id : SV_DispatchThreadID)
     float3 pos = LoadSplatPos(origIdx);
     pos = mul(_MatrixMV, float4(pos.xyz, 1)).xyz;
 
-    _SplatSortDistances[idx] = FloatToSortableUint(pos.z);
+    uint key = (_SortKeyBits == 16) ? DepthToSortKey16(pos.z, _SortKeyMinZ, _SortKeyMaxZ) : FloatToSortableUint(pos.z);
+    _SplatSortDistances[idx] = key;
 }
 
 RWStructuredBuffer<SplatViewData> _SplatViewData;

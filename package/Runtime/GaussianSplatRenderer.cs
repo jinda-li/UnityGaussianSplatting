@@ -285,6 +285,8 @@ namespace GaussianSplatting.Runtime
         public SortMethod m_SortMethod = SortMethod.Auto;
         [Tooltip("In VR multi-pass stereo, sort only once per frame and share the first eye's result with the second eye. No effect in Single Pass Instanced, which renders both eyes in one pass.")]
         public bool m_VRSortOnceBothEyes = true;
+        [Tooltip("DeviceRadixSort only: quantize the sort key to 16 bits (view-space Z linearly mapped across the splat's bounds) instead of the full 32-bit float bit pattern, halving the number of radix passes (4 -> 2). No effect with FidelityFX. Takes effect on enable (resizes sort scratch buffers). See docs/splat-asset-split-plan.md.")]
+        public bool m_SortKeyReducedPrecision = false;
 
         internal GpuSorting.SortType effectiveSortType
         {
@@ -298,6 +300,11 @@ namespace GaussianSplatting.Runtime
                 return method == SortMethod.FidelityFX ? GpuSorting.SortType.FidelityFX : GpuSorting.SortType.DeviceRadixSort;
             }
         }
+
+        // 16 only takes effect for DeviceRadixSort; FFX ignores keyBits and always does the full 32-bit sort
+        // (harmlessly -- see SplatUtilitiesBody.hlsl comment -- but with no speed benefit), so don't offer it there.
+        internal int effectiveSortKeyBits =>
+            (m_SortKeyReducedPrecision && effectiveSortType == GpuSorting.SortType.DeviceRadixSort) ? 16 : 32;
 
         internal ComputeShader csSplatUtilities =>
             effectiveSortType == GpuSorting.SortType.FidelityFX ? m_CSSplatUtilitiesFfx : m_CSSplatUtilities;
@@ -369,6 +376,9 @@ namespace GaussianSplatting.Runtime
             public static readonly int DstBuffer = Shader.PropertyToID("_DstBuffer");
             public static readonly int BufferSize = Shader.PropertyToID("_BufferSize");
             public static readonly int MatrixMV = Shader.PropertyToID("_MatrixMV");
+            public static readonly int SortKeyBits = Shader.PropertyToID("_SortKeyBits");
+            public static readonly int SortKeyMinZ = Shader.PropertyToID("_SortKeyMinZ");
+            public static readonly int SortKeyMaxZ = Shader.PropertyToID("_SortKeyMaxZ");
             public static readonly int MatrixObjectToWorld = Shader.PropertyToID("_MatrixObjectToWorld");
             public static readonly int MatrixWorldToObject = Shader.PropertyToID("_MatrixWorldToObject");
             public static readonly int VecScreenParams = Shader.PropertyToID("_VecScreenParams");
@@ -495,7 +505,7 @@ namespace GaussianSplatting.Runtime
             m_SorterArgs.inputValues = m_GpuSortKeys;
             m_SorterArgs.count = (uint)count;
             if (m_Sorter.Valid)
-                m_SorterArgs.resources = GpuSorting.SupportResources.Load((uint)count, m_Sorter.sortType);
+                m_SorterArgs.resources = GpuSorting.SupportResources.Load((uint)count, m_Sorter.sortType, effectiveSortKeyBits);
         }
 
         bool resourcesAreSetUp => m_ShaderSplats != null && m_ShaderComposite != null && m_ShaderDebugPoints != null &&
@@ -516,7 +526,7 @@ namespace GaussianSplatting.Runtime
         {
             if (m_Sorter == null && resourcesAreSetUp)
             {
-                m_Sorter = new GpuSorting(csSplatUtilities, effectiveSortType);
+                m_Sorter = new GpuSorting(csSplatUtilities, effectiveSortType, effectiveSortKeyBits);
             }
 
             if (!m_Registered && resourcesAreSetUp)
@@ -682,9 +692,33 @@ namespace GaussianSplatting.Runtime
             cmd.SetComputeBufferParam(csSplatUtilities, (int)KernelIndices.CalcDistances, Props.SplatChunks, m_GpuChunks);
             cmd.SetComputeBufferParam(csSplatUtilities, (int)KernelIndices.CalcDistances, Props.SplatPos, m_GpuPosData);
             cmd.SetComputeIntParam(csSplatUtilities, Props.SplatFormat, (int)m_Asset.posFormat);
-            cmd.SetComputeMatrixParam(csSplatUtilities, Props.MatrixMV, worldToCamMatrix * matrix);
+            Matrix4x4 matMV = worldToCamMatrix * matrix;
+            cmd.SetComputeMatrixParam(csSplatUtilities, Props.MatrixMV, matMV);
             cmd.SetComputeIntParam(csSplatUtilities, Props.SplatCount, m_SplatCount);
             cmd.SetComputeIntParam(csSplatUtilities, Props.SplatChunkCount, m_GpuChunksValid ? m_GpuChunks.count : 0);
+
+            int sortKeyBits = effectiveSortKeyBits;
+            cmd.SetComputeIntParam(csSplatUtilities, Props.SortKeyBits, sortKeyBits);
+            if (sortKeyBits == 16)
+            {
+                // View-space Z range of the asset's AABB under this frame's MV matrix. Used to linearly
+                // quantize each splat's depth into 16 bits (see SplatUtilitiesBody.hlsl:DepthToSortKey16).
+                Vector3 bMin = m_Asset.boundsMin, bMax = m_Asset.boundsMax;
+                float zMin = float.MaxValue, zMax = float.MinValue;
+                for (int c = 0; c < 8; ++c)
+                {
+                    Vector3 corner = new Vector3(
+                        (c & 1) != 0 ? bMax.x : bMin.x,
+                        (c & 2) != 0 ? bMax.y : bMin.y,
+                        (c & 4) != 0 ? bMax.z : bMin.z);
+                    float z = matMV.MultiplyPoint3x4(corner).z;
+                    zMin = Mathf.Min(zMin, z);
+                    zMax = Mathf.Max(zMax, z);
+                }
+                cmd.SetComputeFloatParam(csSplatUtilities, Props.SortKeyMinZ, zMin);
+                cmd.SetComputeFloatParam(csSplatUtilities, Props.SortKeyMaxZ, zMax);
+            }
+
             csSplatUtilities.GetKernelThreadGroupSizes((int)KernelIndices.CalcDistances, out uint gsX, out _, out _);
             cmd.DispatchCompute(csSplatUtilities, (int)KernelIndices.CalcDistances, (m_GpuSortDistances.count + (int)gsX - 1)/(int)gsX, 1, 1);
 

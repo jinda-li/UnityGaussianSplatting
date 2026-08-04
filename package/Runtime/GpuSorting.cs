@@ -61,14 +61,19 @@ namespace GaussianSplatting.Runtime
 
             public static SupportResources Load(uint count) => Load(count, SortType.DeviceRadixSort);
 
-            public static SupportResources Load(uint count, SortType type)
+            public static SupportResources Load(uint count, SortType type) => Load(count, type, 32);
+
+            // keyBits: number of low bits of the sort key that are actually significant (32 or 16).
+            // Only DeviceRadixSort honors this (see DispatchDeviceRadixSort); FFX always sorts the full 32 bits.
+            public static SupportResources Load(uint count, SortType type, int keyBits)
             {
                 uint scratchBufferSize, reducedScratchBufferSize;
                 if (type == SortType.DeviceRadixSort)
                 {
+                    uint numPasses = (uint)(keyBits / (int)DEVICE_RADIX_SORT_BITS);
                     //This is threadBlocks * DEVICE_RADIX_SORT_RADIX
                     scratchBufferSize = DivRoundUp(count, DEVICE_RADIX_SORT_PARTITION_SIZE) * DEVICE_RADIX_SORT_RADIX;
-                    reducedScratchBufferSize = DEVICE_RADIX_SORT_RADIX * DEVICE_RADIX_SORT_PASSES;
+                    reducedScratchBufferSize = DEVICE_RADIX_SORT_RADIX * numPasses;
                 }
                 else
                 {
@@ -106,6 +111,7 @@ namespace GaussianSplatting.Runtime
 
         readonly ComputeShader m_CS;
         readonly SortType m_SortType;
+        readonly int m_KeyBits;
 
         // DeviceRadixSort kernels
         readonly int m_kernelInitDeviceRadixSort = -1;
@@ -129,10 +135,18 @@ namespace GaussianSplatting.Runtime
         {
         }
 
-        public GpuSorting(ComputeShader cs, SortType type)
+        public GpuSorting(ComputeShader cs, SortType type) : this(cs, type, 32)
+        {
+        }
+
+        // keyBits: see SupportResources.Load. Only used by DeviceRadixSort; FFX ignores it and always
+        // sorts the full 32 bits (its scatter kernels are not shift-position-agnostic like DeviceRadixSort's
+        // ascending path is, so reducing FFX's pass count needs separate verification before enabling).
+        public GpuSorting(ComputeShader cs, SortType type, int keyBits)
         {
             m_CS = cs;
             m_SortType = type;
+            m_KeyBits = keyBits;
             if (type == SortType.DeviceRadixSort)
             {
                 if (cs)
@@ -247,8 +261,14 @@ namespace GaussianSplatting.Runtime
             cmd.SetComputeBufferParam(m_CS, m_kernelInitDeviceRadixSort, "b_globalHist", args.resources.globalHistBuffer);
             cmd.DispatchCompute(m_CS, m_kernelInitDeviceRadixSort, 1, 1, 1);
 
-            // Execute the sort algorithm in 8-bit increments
-            for (uint radixShift = 0; radixShift < 32; radixShift += DEVICE_RADIX_SORT_BITS)
+            // Execute the sort algorithm in 8-bit increments. Stopping early at m_KeyBits < 32 relies on
+            // GlobalHistOffset() in SortCommon.hlsl indexing b_globalHist by (radixShift/8)*RADIX — i.e. by
+            // pass position, not by radixShift's absolute bit value — so a shorter, contiguous 0..keyBits
+            // run addresses exactly the reduced-size histogram buffer allocated in SupportResources.Load,
+            // and the unexamined high bits of the key are simply never read. Verified this is safe only for
+            // the ascending path (SHOULD_ASCEND, always enabled below) — the descending scatter variants
+            // hardcode "final pass = shift 24", which reduced-bit mode would break.
+            for (uint radixShift = 0; radixShift < (uint)m_KeyBits; radixShift += DEVICE_RADIX_SORT_BITS)
             {
                 cmd.SetComputeIntParam(m_CS, "e_radixShift", (int)radixShift);
 
