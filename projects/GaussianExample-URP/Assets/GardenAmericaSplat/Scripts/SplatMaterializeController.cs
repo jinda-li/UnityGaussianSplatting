@@ -24,11 +24,19 @@ namespace GardenSplat
         [Header("Dormant Look")]
         [Tooltip("Additive RGB offset applied over each dormant point's original splat color; black leaves it unchanged")]
         [ColorUsage(false, true)] public Color m_DormantColorOffset = Color.black;
-        [Tooltip("Dormant point size in screen pixels (uniform, like the renderer's debug points - not the gaussian ellipse)")]
+        [Tooltip("Dormant point size in screen pixels, authored at the renderer's scene scale; scales " +
+                 "automatically with m_Renderer's current transform scale (e.g. TabletopDiveController's " +
+                 "bird's-eye shrink) so it stays proportionate to the miniature instead of full-size specks")]
         [Range(1f, 12f)] public float m_DormantPointSize = 3f;
+        [Tooltip("Floor on the scaled-down point size, in screen pixels. At extreme shrink (bird's-eye " +
+                 "tabletop mode) m_DormantPointSize * scaleRatio can fall under 1px and vanish; this keeps " +
+                 "dormant points visibly readable no matter how small the world gets")]
+        [Min(0.1f)] public float m_MinDormantPointSize = 1.5f;
         [Tooltip("Fraction of still-dormant points that render, so the world starts sparse (and cheaper). Painted points always show")]
         [Range(0.02f, 1f)] public float m_DormantVisibleFraction = 0.35f;
-        [Tooltip("Metres of gentle idle bob while dormant; damps to zero as a splat is painted")]
+        [Tooltip("Metres of gentle idle bob while dormant, authored at the renderer's scene scale; scales " +
+                 "automatically with m_Renderer's current transform scale like m_DormantPointSize above. " +
+                 "Damps to zero as a splat is painted")]
         [Min(0f)] public float m_DormantDrift = 0.03f;
         [Min(0f)] public float m_DormantDriftSpeed = 1.2f;
 
@@ -124,6 +132,12 @@ namespace GardenSplat
         void OnEnable()
         {
             EnsureReflectionCached();
+            // Baseline scale to measure the live scale-ratio against, captured once here rather
+            // than on Awake so a domain reload / re-enable while the world is already shrunk
+            // (e.g. re-entering Play mode mid-Place) doesn't wrongly adopt the shrunk pose as
+            // "authored". OnEnable still runs before TabletopDiveController's Start() shrinks the
+            // renderer for the first time, so in practice this is the same instant either way.
+            m_AuthoredScale = m_Renderer ? Mathf.Max(Mathf.Abs(m_Renderer.transform.localScale.x), 1e-4f) : 1f;
         }
 
         void OnDisable()
@@ -137,6 +151,14 @@ namespace GardenSplat
             m_Bursts.Clear();
             ResetGlobals();
         }
+
+        // Renderer's current scale relative to the authored (OnEnable-time) scale — 1 at the
+        // scene-authored pose, <1 while TabletopDiveController has the world shrunk toward
+        // tabletop size. Reading m_Renderer.transform directly (rather than subscribing to a
+        // scale-change event) means any current or future path that changes the renderer's
+        // transform scale is picked up automatically, with zero coupling to how the scale changed.
+        float CurrentScaleRatio => m_Renderer ? Mathf.Abs(m_Renderer.transform.localScale.x) / m_AuthoredScale : 1f;
+        float m_AuthoredScale = 1f;
 
         // Shader.SetGlobal* is process-global and outlives this component (a scene switch
         // doesn't reset it). Static so a scene with no SplatMaterializeController at all
@@ -327,10 +349,11 @@ namespace GardenSplat
 
         void PushGlobals()
         {
+            float scaleRatio = CurrentScaleRatio;
             Shader.SetGlobalColor(Props.DormantColorOffset, m_DormantColorOffset);
-            Shader.SetGlobalFloat(Props.DormantPointSize, m_DormantPointSize);
+            Shader.SetGlobalFloat(Props.DormantPointSize, Mathf.Max(m_DormantPointSize * scaleRatio, m_MinDormantPointSize));
             Shader.SetGlobalFloat(Props.DormantVisibleFraction, m_DormantVisibleFraction);
-            Shader.SetGlobalFloat(Props.DormantDrift, m_DormantDrift);
+            Shader.SetGlobalFloat(Props.DormantDrift, m_DormantDrift * scaleRatio);
             Shader.SetGlobalFloat(Props.DormantDriftSpeed, m_DormantDriftSpeed);
             Shader.SetGlobalFloat(Props.PaintTime, PaintClock);
             Shader.SetGlobalFloat(Props.PopDuration, m_PopDuration);

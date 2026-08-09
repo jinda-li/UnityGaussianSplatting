@@ -37,6 +37,9 @@ namespace GardenMR
         [Tooltip("Invisible walk-on collision mesh; only needed once the player is inside at full scale.")]
         public GameObject m_CollisionProxy;
 
+        [Tooltip("Comet-throw paint interaction; only active once the player is Immersive (dived in). Optional.")]
+        public GameObject m_CometBrush;
+
         [Header("Player")]
         public Transform m_PlayerFeet;                    // root of the locomotion rig (has the CharacterController)
         public Behaviour m_LocomotionComponent;            // disabled outside Immersive so MR browsing can't shove the player
@@ -85,6 +88,12 @@ namespace GardenMR
         public float m_ApertureOpen = 1f;
         public float m_ApertureClosedMin = 0.05f;
         public float m_Feathering = 0.35f;
+
+        [Tooltip("Half-width (in normalized ease, 0-0.5) of a fully-closed plateau centered on the " +
+                 "cutout/passthrough/skybox flip at ease 0.5. The old triangular bell only hit its minimum " +
+                 "for a single frame, so the hard state swap could show through the closedMin sliver; " +
+                 "this plateau forces the aperture to 0 for a few frames on either side of the flip instead.")]
+        public float m_FlipHoldFraction = 0.06f;
         public Renderer m_VignetteRenderer;               // TunnelingVignette instance's mesh renderer
 
         [Header("Editor / debug dive (M1)")]
@@ -471,6 +480,7 @@ namespace GardenMR
             // CharacterController spends a frame falling through the removed proxy.
             SetAvatar(false);
             SetActive(m_CollisionProxy, false);
+            SetActive(m_CometBrush, false);
             // Asset Plane MeshCollider under the splat blocks XR rays to SpawnPoint in Place.
             SetSplatGroundColliders(false);
             SetCutout(true);
@@ -491,6 +501,7 @@ namespace GardenMR
             // Ground first, then re-enable the body: the CharacterController must have
             // something to land on the very first frame gravity runs again.
             SetActive(m_CollisionProxy, true);
+            SetActive(m_CometBrush, true);
             SetSplatGroundColliders(true);
             Physics.SyncTransforms();
             SetAvatar(true);
@@ -615,6 +626,18 @@ namespace GardenMR
         }
 
         void SetLocomotion(bool on) { if (m_LocomotionComponent) m_LocomotionComponent.enabled = on; }
+
+        // Same triangular bell as before outside the flip window, but clamps to fully closed (0)
+        // within m_FlipHoldFraction of ease 0.5 so the cutout/passthrough/skybox swap is hidden.
+        float ApertureForEase(float ease)
+        {
+            float d = Mathf.Abs(ease - 0.5f);
+            if (d <= m_FlipHoldFraction)
+                return 0f;
+            float half = Mathf.Max(0.5f - m_FlipHoldFraction, 0.0001f);
+            float t = (d - m_FlipHoldFraction) / half;
+            return Mathf.Lerp(m_ApertureClosedMin, m_ApertureOpen, t);
+        }
 
         public void SetVignette(float aperture)
         {
@@ -745,8 +768,7 @@ namespace GardenMR
                 m_SplatRoot.rotation = rot;
                 m_SplatRoot.position = SplatPositionForAnchor(anchor, rot, m_DiveLocalAnchor, mag);
 
-                float bell = 1f - Mathf.Abs(ease - 0.5f) * 2f;
-                SetVignette(Mathf.Lerp(m_ApertureOpen, m_ApertureClosedMin, bell));
+                SetVignette(ApertureForEase(ease));
 
                 if (!flipped && ease >= 0.5f)
                 {
@@ -776,6 +798,7 @@ namespace GardenMR
             StopCameraRigCatchUp();
             SetAvatar(false);
             SetActive(m_CollisionProxy, false);
+            SetActive(m_CometBrush, false);
 
             float targetMag = m_PreDiveMagnitude > 0f ? m_PreDiveMagnitude : m_DefaultTableScale;
             if (m_ScaleHandle)
@@ -807,8 +830,7 @@ namespace GardenMR
                 m_SplatRoot.rotation = endRot;
                 m_SplatRoot.position = SplatPositionForAnchor(anchor, endRot, m_DiveLocalAnchor, mag);
 
-                float bell = 1f - Mathf.Abs(ease - 0.5f) * 2f;
-                SetVignette(Mathf.Lerp(m_ApertureOpen, m_ApertureClosedMin, bell));
+                SetVignette(ApertureForEase(ease));
 
                 if (!flipped && ease >= 0.5f)
                 {

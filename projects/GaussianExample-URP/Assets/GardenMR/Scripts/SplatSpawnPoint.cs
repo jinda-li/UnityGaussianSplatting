@@ -30,6 +30,12 @@ namespace GardenMR
         {
             if (!m_Interactable)
                 m_Interactable = GetComponent<XRBaseInteractable>();
+            if (!m_Controller)
+            {
+                m_Controller = Object.FindFirstObjectByType<TabletopDiveController>();
+                if (!m_Controller)
+                    Debug.LogWarning($"{nameof(SplatSpawnPoint)}: no {nameof(TabletopDiveController)} found; Dive will do nothing.", this);
+            }
             RegisterCollider();
             // Non-trigger so XR ray / sphere cast can hit it.
             var col = GetComponent<Collider>();

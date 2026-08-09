@@ -12,9 +12,8 @@ Shader "VRInteraction/InfoOrbBreath"
 
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "RenderPipeline" = "UniversalPipeline" }
-        Blend SrcAlpha OneMinusSrcAlpha
-        ZWrite Off
+        Tags { "RenderType" = "Opaque" "Queue" = "Geometry" "RenderPipeline" = "UniversalPipeline" }
+        ZWrite On
         Cull Back
 
         Pass
