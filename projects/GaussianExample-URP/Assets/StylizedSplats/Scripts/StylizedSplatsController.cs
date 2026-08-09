@@ -82,6 +82,26 @@ namespace StylizedSplats
             m_PaintProgress?.Dispose();
             m_PaintProgress = null;
             m_PaintProgressCount = 0;
+            ResetGlobals();
+        }
+
+        // Shader.SetGlobal* is process-global and outlives this component (a scene switch
+        // doesn't reset it). Static so a scene with no StylizedSplatsController at all
+        // (e.g. SplatGlobalsReset on scene load) can still scrub every key this class owns.
+        public static void ResetGlobals()
+        {
+            Shader.SetGlobalFloat(Props.StylizedEnable, 0f);
+            Shader.SetGlobalFloat(Props.StyleSizeMin, 0f);
+            Shader.SetGlobalFloat(Props.StyleSizeMax, 0f);
+            Shader.SetGlobalFloat(Props.StyleAlphaCut, 0f);
+            Shader.SetGlobalFloat(Props.StyleAlphaGamma, 1f);
+            Shader.SetGlobalFloat(Props.StyleRandomFlip, 0f);
+            Shader.SetGlobalFloat(Props.StyleFlipJitter, 0f);
+            Shader.SetGlobalFloat(Props.BaseSaturation, 0f);
+            Shader.SetGlobalFloat(Props.BaseLift, 0f);
+            Shader.SetGlobalFloat(Props.PreviewPainted, 0f);
+            Shader.SetGlobalFloat(Props.SizeCullEnable, 0f);
+            Shader.SetGlobalFloat(Props.SizeCullMax, 0f);
             Shader.SetGlobalInt(Props.SplatPaintValid, 0);
         }
 

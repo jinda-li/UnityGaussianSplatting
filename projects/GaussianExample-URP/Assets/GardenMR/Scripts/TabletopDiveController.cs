@@ -94,8 +94,19 @@ namespace GardenMR
         public InputAction m_DiveAction = new InputAction("DiveToSpawn", InputActionType.Button, "<Keyboard>/d");
 
         [Header("Return to tabletop")]
-        [Tooltip("Keyboard R plus both controller menu buttons by default.")]
+        [Tooltip("Keyboard R plus the right controller menu button by default. Left menu button now opens " +
+                 "the environment menu, so only the right hand is bound here to avoid a conflict. " +
+                 "NOTE: a scene-serialized instance of this field keeps its already-baked bindings; if the " +
+                 "scene still has the old left-hand binding it must be removed by hand in the Inspector.")]
         public InputAction m_ReturnAction = new InputAction("ReturnToTabletop", InputActionType.Button, "<Keyboard>/r");
+
+        [Header("Summon (menu button / keyboard C)")]
+        [Tooltip("Keyboard C by default; the VR trigger is a button inside EnvironmentMenu, not a raw binding.")]
+        public InputAction m_SummonAction = new InputAction("SummonRig", InputActionType.Button, "<Keyboard>/c");
+        [Tooltip("Summon flight duration is dist * this many seconds per metre, clamped to [m_SummonMinDuration, m_SummonMaxDuration].")]
+        public float m_SummonSecondsPerMeter = 0.45f;
+        public float m_SummonMinDuration = 0.28f;
+        public float m_SummonMaxDuration = 0.70f;
 
         [Header("Audio")]
         [Tooltip("Plays transition.mp3 as a one-shot when Dive or Return starts.")]
@@ -108,9 +119,20 @@ namespace GardenMR
 
         public State CurrentState { get; private set; } = State.Place;
 
+        public float ApertureOpen => m_ApertureOpen;
+        public float ApertureClosedMin => m_ApertureClosedMin;
+
+        // Set by scene-transition / summon while they own an exclusive animation, so Dive
+        // and other transitions can't start mid-flight even though CurrentState is still Place.
+        bool m_TransitionLock;
+        public bool IsBusy => m_TransitionLock || CurrentState == State.Diving || CurrentState == State.Returning;
+        public void BeginExclusiveTransition() => m_TransitionLock = true;
+        public void EndExclusiveTransition() => m_TransitionLock = false;
+
         Transform m_SplatRoot;
         Vector3 m_ScaleSign = Vector3.one;
         Coroutine m_Routine;
+        Coroutine m_SummonRoutine;
         Material m_VignetteMaterialInstance;
 
         void Awake()
@@ -130,7 +152,6 @@ namespace GardenMR
             EnsureCameraData();
             ResolveXrOrigin();
 
-            EnsureVrReturnBindings();
             EnsureXRInteractionManager();
             if (!m_HandleRig && m_PlaceModeHandles)
                 m_HandleRig = m_PlaceModeHandles.GetComponent<SplatHandleRig>();
@@ -176,6 +197,11 @@ namespace GardenMR
                 m_ReturnAction.performed += OnReturnActionPerformed;
                 m_ReturnAction.Enable();
             }
+            if (m_SummonAction != null)
+            {
+                m_SummonAction.performed += OnSummonActionPerformed;
+                m_SummonAction.Enable();
+            }
         }
 
         void OnDisable()
@@ -190,10 +216,16 @@ namespace GardenMR
                 m_ReturnAction.performed -= OnReturnActionPerformed;
                 m_ReturnAction.Disable();
             }
+            if (m_SummonAction != null)
+            {
+                m_SummonAction.performed -= OnSummonActionPerformed;
+                m_SummonAction.Disable();
+            }
         }
 
         void OnDiveActionPerformed(InputAction.CallbackContext ctx) => DiveFromShortcut();
         void OnReturnActionPerformed(InputAction.CallbackContext ctx) => Return();
+        void OnSummonActionPerformed(InputAction.CallbackContext ctx) => RequestSummon();
 
         void DiveFromShortcut()
         {
@@ -202,19 +234,8 @@ namespace GardenMR
                 point = m_SpawnPointsGroup.GetComponentInChildren<SplatSpawnPoint>(true);
             if (point)
                 Dive(point);
-        }
-
-        void EnsureVrReturnBindings()
-        {
-            if (m_ReturnAction == null)
-                return;
-            foreach (var binding in m_ReturnAction.bindings)
-            {
-                if (!string.IsNullOrEmpty(binding.path) && binding.path.Contains("XRController"))
-                    return;
-            }
-            m_ReturnAction.AddBinding("<XRController>{LeftHand}/menuButton");
-            m_ReturnAction.AddBinding("<XRController>{RightHand}/menuButton");
+            else
+                Debug.LogWarning($"{nameof(TabletopDiveController)}: no SplatSpawnPoint found for the dive shortcut.", this);
         }
 
         void Start()
@@ -225,6 +246,38 @@ namespace GardenMR
             EnterPlace();
             if (m_AutoPlaceOnStart)
                 StartCoroutine(AutoPlaceRoutine());
+            ValidateSpawnPoints();
+        }
+
+        // Authoring self-check: every spawn point must sit just above the collision mesh
+        // (Dive lands the player there) and at least one must exist, or Dive silently does
+        // nothing. Runs once at Start so a badly authored environment is caught immediately.
+        void ValidateSpawnPoints()
+        {
+            if (!m_SpawnPointsGroup)
+            {
+                Debug.LogError($"{nameof(TabletopDiveController)}: m_SpawnPointsGroup is not assigned.", this);
+                return;
+            }
+            var points = m_SpawnPointsGroup.GetComponentsInChildren<SplatSpawnPoint>(true);
+            if (points.Length == 0)
+            {
+                Debug.LogError($"{nameof(TabletopDiveController)}: '{m_SpawnPointsGroup.name}' has no SplatSpawnPoint children; Dive shortcuts will do nothing.", this);
+                return;
+            }
+            const float k_RayLength = 1f;
+            const float k_MaxGroundGap = 0.05f;
+            foreach (var point in points)
+            {
+                if (!Physics.Raycast(point.transform.position, Vector3.down, out var hit, k_RayLength))
+                {
+                    Debug.LogWarning($"{nameof(TabletopDiveController)}: spawn point '{point.name}' has no collision mesh within {k_RayLength} m below it — Dive will land the player in free fall.", point);
+                    continue;
+                }
+                float gap = point.transform.position.y - hit.point.y;
+                if (gap > k_MaxGroundGap)
+                    Debug.LogWarning($"{nameof(TabletopDiveController)}: spawn point '{point.name}' is {gap:F2} m above the collision mesh (expected <= {k_MaxGroundGap} m).", point);
+            }
         }
 
         // The HMD pose is not available on the first frames of a session (the camera still sits at
@@ -245,12 +298,15 @@ namespace GardenMR
             return m_XrCamera.transform.localPosition.sqrMagnitude > 1e-6f;
         }
 
-        // Drops GardenMRRig on an imaginary table in front of the headset, facing the player.
-        // Public so a UI button / debug key can re-center it later.
-        public void PlaceRigInFrontOfPlayer()
+        // Pure calculation half of placement: where GardenMRRig should sit on an imaginary
+        // table in front of the headset, facing the player. No side effects, so both the
+        // instant auto-place and the animated Summon flight can share it.
+        public bool TryComputePlacementPose(out Vector3 pos, out Quaternion rot)
         {
-            if (!m_Rig || !m_XrCamera || CurrentState != State.Place)
-                return;
+            pos = default;
+            rot = Quaternion.identity;
+            if (!m_XrCamera)
+                return false;
 
             var head = m_XrCamera.transform;
             Vector3 forward = head.forward;
@@ -262,12 +318,81 @@ namespace GardenMR
             ResolveXrOrigin();
             float floorY = m_XrOrigin ? m_XrOrigin.position.y : 0f;
 
-            Vector3 pos = head.position + forward * m_PlaceDistance;
+            pos = head.position + forward * m_PlaceDistance;
             pos.y = floorY + m_PlaceHeight;
+            rot = Quaternion.Euler(0f, Quaternion.LookRotation(forward, Vector3.up).eulerAngles.y + m_PlaceYawOffset, 0f);
+            return true;
+        }
 
-            m_Rig.SetPositionAndRotation(
-                pos,
-                Quaternion.Euler(0f, Quaternion.LookRotation(forward, Vector3.up).eulerAngles.y + m_PlaceYawOffset, 0f));
+        // Drops GardenMRRig on an imaginary table in front of the headset, facing the player.
+        // Public so a debug key can re-center it later. Instant (no animation) — used for the
+        // very first auto-place on scene start; use RequestSummon() for the animated version.
+        public void PlaceRigInFrontOfPlayer()
+        {
+            if (!m_Rig || CurrentState != State.Place)
+                return;
+            if (TryComputePlacementPose(out var pos, out var rot))
+                m_Rig.SetPositionAndRotation(pos, rot);
+        }
+
+        // Animated version of PlaceRigInFrontOfPlayer, triggered from the menu's Summon
+        // button (and <Keyboard>/c for Editor testing). Bound to m_SummonAction.
+        public void RequestSummon()
+        {
+            if (!m_Rig || !m_XrCamera || CurrentState != State.Place || IsBusy || m_SummonRoutine != null)
+                return;
+            m_SummonRoutine = StartCoroutine(SummonRoutine());
+        }
+
+        IEnumerator SummonRoutine()
+        {
+            BeginExclusiveTransition();
+            SetRigGrabEnabled(false); // otherwise XRGeneralGrabTransformer fights the coroutine every frame
+
+            if (!TryComputePlacementPose(out var targetPos, out var targetRot))
+            {
+                EndExclusiveTransition();
+                m_SummonRoutine = null;
+                yield break;
+            }
+
+            Vector3 startPos = m_Rig.position;
+            Quaternion startRot = m_Rig.rotation;
+
+            // Target pose is computed once above — re-sampling the head every frame would let
+            // the target chase the player and never converge. The head position used as the
+            // pivot for the offset arc below is likewise captured once, at flight start.
+            Vector3 headPos = m_XrCamera.transform.position;
+            Vector3 startOffset = startPos - headPos;
+            Vector3 targetOffset = targetPos - headPos;
+            float startMag = startOffset.magnitude;
+            float targetMag = targetOffset.magnitude;
+            Vector3 startDir = startMag > 1e-5f ? startOffset / startMag : targetOffset.normalized;
+            Vector3 targetDir = targetMag > 1e-5f ? targetOffset / targetMag : startDir;
+
+            float dist = Vector3.Distance(startPos, targetPos);
+            float duration = Mathf.Clamp(dist * m_SummonSecondsPerMeter, m_SummonMinDuration, m_SummonMaxDuration);
+
+            float t = 0f;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / Mathf.Max(0.01f, duration);
+                float tc = Mathf.Clamp01(t);
+                float ease = 1f - Mathf.Pow(1f - tc, 3f); // ease-out cubic: fast out, soft landing
+
+                // Slerp the head-relative offset (not a straight Vector3.Lerp of world positions)
+                // so a summon from behind arcs around the head instead of clipping through the face.
+                Vector3 dir = Vector3.Slerp(startDir, targetDir, ease);
+                float mag = Mathf.Lerp(startMag, targetMag, ease);
+                m_Rig.SetPositionAndRotation(headPos + dir * mag, Quaternion.Slerp(startRot, targetRot, ease));
+
+                yield return null;
+            }
+
+            m_Rig.SetPositionAndRotation(targetPos, targetRot);
+            SetRigGrabEnabled(true);
+            EndExclusiveTransition();
+            m_SummonRoutine = null;
         }
 
         void LateUpdate()
@@ -372,7 +497,7 @@ namespace GardenMR
         // If a grab is still active when handles disable for Dive, Instantaneous movement can
         // keep yanking the (now mostly-empty) rig toward the controller — so on Return the
         // miniature reparents under a rig that has drifted off the desk.
-        void SetRigGrabEnabled(bool enabled)
+        public void SetRigGrabEnabled(bool enabled)
         {
             if (!m_Rig)
                 return;
@@ -390,7 +515,7 @@ namespace GardenMR
 
         // Mute large ground meshes (e.g. GaussianSplats/Plane) in Place so XR rays can hit
         // SpawnPoint. Re-enable them in Immersive so the player can walk on the floor.
-        void SetSplatGroundColliders(bool enabled)
+        public void SetSplatGroundColliders(bool enabled)
         {
             if (!m_SplatRoot)
                 return;
@@ -452,7 +577,7 @@ namespace GardenMR
                 cc.enabled = true;
         }
 
-        void SetActive(GameObject go, bool active) { if (go) go.SetActive(active); }
+        public void SetActive(GameObject go, bool active) { if (go) go.SetActive(active); }
 
         void SetCutout(bool enabled) { if (m_Cutout) m_Cutout.enabled = enabled; }
 
@@ -485,7 +610,7 @@ namespace GardenMR
 
         void SetLocomotion(bool on) { if (m_LocomotionComponent) m_LocomotionComponent.enabled = on; }
 
-        void SetVignette(float aperture)
+        public void SetVignette(float aperture)
         {
             if (!m_VignetteMaterialInstance)
                 return;
@@ -547,7 +672,7 @@ namespace GardenMR
 
         public void Dive(SplatSpawnPoint point)
         {
-            if (CurrentState != State.Place || !point || !m_SplatRoot)
+            if (CurrentState != State.Place || IsBusy || !point || !m_SplatRoot)
                 return;
             if (m_Routine != null)
                 StopCoroutine(m_Routine);

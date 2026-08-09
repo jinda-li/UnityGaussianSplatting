@@ -135,6 +135,32 @@ namespace GardenSplat
             m_PaintPartialSums = null;
             m_CoverageReadbackPending = false;
             m_Bursts.Clear();
+            ResetGlobals();
+        }
+
+        // Shader.SetGlobal* is process-global and outlives this component (a scene switch
+        // doesn't reset it). Static so a scene with no SplatMaterializeController at all
+        // (e.g. SplatGlobalsReset on scene load) can still scrub every key this class owns.
+        public static void ResetGlobals()
+        {
+            Shader.SetGlobalColor(Props.DormantColorOffset, Color.black);
+            Shader.SetGlobalFloat(Props.DormantPointSize, 0f);
+            Shader.SetGlobalFloat(Props.DormantVisibleFraction, 0f);
+            Shader.SetGlobalFloat(Props.DormantDrift, 0f);
+            Shader.SetGlobalFloat(Props.DormantDriftSpeed, 0f);
+            Shader.SetGlobalFloat(Props.PaintTime, 0f);
+            Shader.SetGlobalFloat(Props.PopDuration, 0f);
+            Shader.SetGlobalFloat(Props.PopSize, 0f);
+            Shader.SetGlobalFloat(Props.PopSaturation, 0f);
+            Shader.SetGlobalFloat(Props.PopFlash, 0f);
+            Shader.SetGlobalColor(Props.PopColor, Color.black);
+            Shader.SetGlobalFloat(Props.MaterializePreview, 0f);
+            Shader.SetGlobalFloat(Props.StyleSizeMin, 0f);
+            Shader.SetGlobalFloat(Props.StyleSizeMax, 0f);
+            Shader.SetGlobalFloat(Props.StyleAlphaCut, 0f);
+            Shader.SetGlobalFloat(Props.StyleAlphaGamma, 1f);
+            Shader.SetGlobalFloat(Props.StyleRandomFlip, 0f);
+            Shader.SetGlobalFloat(Props.StyleFlipJitter, 0f);
             Shader.SetGlobalInt(Props.SplatPaintValid, 0);
         }
 

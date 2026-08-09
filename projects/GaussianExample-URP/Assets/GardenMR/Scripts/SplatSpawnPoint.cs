@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Filtering;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
 namespace GardenMR
 {
@@ -23,6 +24,7 @@ namespace GardenMR
 
         static readonly int k_BaseColor = Shader.PropertyToID("_BaseColor");
         XRSelectFilterDelegate m_RejectSelectFilter;
+        MaterialPropertyBlock m_Mpb;
 
         void Awake()
         {
@@ -87,14 +89,25 @@ namespace GardenMR
 
         void OnActivated(ActivateEventArgs args)
         {
+            // Activate and UI Press share the same trigger; a menu button press behind this
+            // orb must not also fire a Dive. NearFarInteractor keeps registering 3D hits even
+            // while a ray is over UI, so this check is the only thing preventing that.
+            if (args.interactorObject is NearFarInteractor nf && nf.TryGetCurrentUIRaycastResult(out _))
+                return;
+            if (m_Controller && m_Controller.IsBusy)
+                return;
             if (m_Controller)
                 m_Controller.Dive(this);
         }
 
         void ApplyColor(Color c)
         {
-            if (m_Visual && m_Visual.sharedMaterial && m_Visual.sharedMaterial.HasProperty(k_BaseColor))
-                m_Visual.material.SetColor(k_BaseColor, c);
+            if (!m_Visual || !m_Visual.sharedMaterial || !m_Visual.sharedMaterial.HasProperty(k_BaseColor))
+                return;
+            m_Mpb ??= new MaterialPropertyBlock();
+            m_Visual.GetPropertyBlock(m_Mpb);
+            m_Mpb.SetColor(k_BaseColor, c);
+            m_Visual.SetPropertyBlock(m_Mpb);
         }
     }
 }
