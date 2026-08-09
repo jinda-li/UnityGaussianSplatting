@@ -16,6 +16,9 @@ namespace GardenMR
         [Tooltip("Enabled when this card represents the scene currently loaded.")]
         public GameObject m_LoadedRing;
 
+        [Tooltip("Enabled when this card is the pending selection (not yet summoned).")]
+        public GameObject m_SelectedRing;
+
         public void Configure(EnvironmentCatalog.Entry entry, bool isCurrent, System.Action onClick)
         {
             if (m_Thumbnail)
@@ -24,6 +27,7 @@ namespace GardenMR
                 m_Label.text = entry.m_DisplayId;
             if (m_LoadedRing)
                 m_LoadedRing.SetActive(isCurrent);
+            SetSelected(false);
             if (!m_Button)
                 return;
             // The currently loaded scene's card is not a valid switch target.
@@ -31,6 +35,12 @@ namespace GardenMR
             m_Button.onClick.RemoveAllListeners();
             if (!isCurrent)
                 m_Button.onClick.AddListener(() => onClick?.Invoke());
+        }
+
+        public void SetSelected(bool selected)
+        {
+            if (m_SelectedRing)
+                m_SelectedRing.SetActive(selected);
         }
     }
 }

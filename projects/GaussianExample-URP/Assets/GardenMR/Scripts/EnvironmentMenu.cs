@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace GardenMR
@@ -37,7 +36,8 @@ namespace GardenMR
         public InputAction m_ToggleAction = new InputAction("ToggleEnvironmentMenu", InputActionType.Button, "<XRController>{LeftHand}/menuButton");
 
         readonly List<EnvironmentMenuCard> m_Cards = new();
-        TabletopDiveController m_DiveController;
+        readonly List<string> m_CardScenes = new();
+        string m_SelectedScene;
 
         void Awake()
         {
@@ -88,8 +88,14 @@ namespace GardenMR
                 if (card)
                     Destroy(card.gameObject);
             m_Cards.Clear();
+            m_CardScenes.Clear();
+            m_SelectedScene = null;
 
-            string currentScene = SceneManager.GetActiveScene().name;
+            // gameObject.scene, not SceneManager.GetActiveScene(): during a Single-mode load
+            // the new scene's objects run Awake() before Unity flips the active scene, so
+            // GetActiveScene() would still report the OLD scene here and every card's
+            // isCurrent check would be wrong on the freshly loaded menu.
+            string currentScene = gameObject.scene.name;
             foreach (var entry in m_Catalog.m_Environments)
             {
                 var card = Instantiate(m_CardTemplate, m_CardContainer);
@@ -98,22 +104,36 @@ namespace GardenMR
                 string sceneName = entry.m_SceneName;
                 card.Configure(entry, isCurrent, () => OnCardClicked(sceneName));
                 m_Cards.Add(card);
+                m_CardScenes.Add(sceneName);
             }
+            RefreshSummonInteractable();
         }
 
+        // Selecting a card only marks it as the pending choice; the scene doesn't switch
+        // until the player presses Summon. Keeps the "browse cards" and "commit" actions
+        // separate so a stray card tap can't yank the player into a load.
         void OnCardClicked(string sceneName)
         {
-            if (SceneTransition.Instance == null || SceneTransition.Instance.IsBusy)
-                return;
-            Close();
-            SceneTransition.Instance.LoadEnvironment(sceneName);
+            m_SelectedScene = sceneName;
+            for (int i = 0; i < m_Cards.Count; i++)
+                m_Cards[i].SetSelected(m_CardScenes[i] == sceneName);
+            RefreshSummonInteractable();
+        }
+
+        void RefreshSummonInteractable()
+        {
+            if (m_SummonButton)
+                m_SummonButton.interactable = !string.IsNullOrEmpty(m_SelectedScene);
         }
 
         void OnSummonClicked()
         {
-            if (!m_DiveController)
-                m_DiveController = FindFirstObjectByType<TabletopDiveController>();
-            m_DiveController?.RequestSummon();
+            if (string.IsNullOrEmpty(m_SelectedScene))
+                return;
+            if (SceneTransition.Instance == null || SceneTransition.Instance.IsBusy)
+                return;
+            Close();
+            SceneTransition.Instance.LoadEnvironment(m_SelectedScene);
         }
 
         public void Open()

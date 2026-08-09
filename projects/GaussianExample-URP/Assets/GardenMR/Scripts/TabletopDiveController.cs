@@ -131,6 +131,11 @@ namespace GardenMR
 
         Transform m_SplatRoot;
         Vector3 m_ScaleSign = Vector3.one;
+        // Authored scale of the splat in the scene, captured before Start shrinks it to the
+        // tabletop. This is the *immersive* (first-person) magnitude — each environment is
+        // modelled at its own real-world unit size, so Dive must grow to this value rather
+        // than the 1.0 that used to be hardcoded.
+        float m_ImmersiveMagnitude = 1f;
         Coroutine m_Routine;
         Coroutine m_SummonRoutine;
         Material m_VignetteMaterialInstance;
@@ -144,6 +149,7 @@ namespace GardenMR
                     Mathf.Sign(m_SplatRoot.localScale.x),
                     Mathf.Sign(m_SplatRoot.localScale.y),
                     Mathf.Sign(m_SplatRoot.localScale.z));
+                m_ImmersiveMagnitude = Mathf.Max(Mathf.Abs(m_SplatRoot.localScale.x), 1e-4f);
             }
 
             if (m_VignetteRenderer)
@@ -730,7 +736,7 @@ namespace GardenMR
                 float tc = Mathf.Clamp01(t);
                 float ease = tc * tc * (3f - 2f * tc);
 
-                float mag = Mathf.Exp(Mathf.Lerp(Mathf.Log(startMag), 0f, ease)); // log(1)=0
+                float mag = Mathf.Exp(Mathf.Lerp(Mathf.Log(startMag), Mathf.Log(m_ImmersiveMagnitude), ease));
                 Vector3 footTarget = new Vector3(m_PlayerFeet.position.x, FootY(m_PlayerFeet), m_PlayerFeet.position.z);
                 // Spawn drifts from its desk position to under the player's feet while growing.
                 Vector3 anchor = Vector3.Lerp(anchorStart, footTarget, ease);
@@ -753,9 +759,9 @@ namespace GardenMR
             }
 
             Vector3 finalFoot = new Vector3(m_PlayerFeet.position.x, FootY(m_PlayerFeet), m_PlayerFeet.position.z);
-            m_SplatRoot.localScale = m_ScaleSign;
+            m_SplatRoot.localScale = Vector3.Scale(m_ScaleSign, Vector3.one * m_ImmersiveMagnitude);
             m_SplatRoot.rotation = rot;
-            m_SplatRoot.position = SplatPositionForAnchor(finalFoot, rot, m_DiveLocalAnchor, 1f);
+            m_SplatRoot.position = SplatPositionForAnchor(finalFoot, rot, m_DiveLocalAnchor, m_ImmersiveMagnitude);
             SetVignette(m_ApertureOpen);
             EnterImmersive();
             m_Routine = null;
@@ -794,7 +800,7 @@ namespace GardenMR
                 float tc = Mathf.Clamp01(t);
                 float ease = tc * tc * (3f - 2f * tc);
 
-                float mag = Mathf.Exp(Mathf.Lerp(0f, Mathf.Log(targetMag), ease));
+                float mag = Mathf.Exp(Mathf.Lerp(Mathf.Log(m_ImmersiveMagnitude), Mathf.Log(targetMag), ease));
                 Vector3 anchor = Vector3.Lerp(anchorStart, anchorEnd, ease);
 
                 m_SplatRoot.localScale = Vector3.Scale(m_ScaleSign, Vector3.one * mag);
