@@ -539,6 +539,19 @@ MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 8429981633443581380, guid: 6c8af5c8012f01440af6cb2bc3eb987c, type: 3}
   m_PrefabInstance: {fileID: 666076325}
   m_PrefabAsset: {fileID: 0}
+--- !u!134 &675813910
+PhysicsMaterial:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!114 &700000001 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7841055261470831569, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
@@ -723,6 +736,10 @@ PrefabInstance:
       propertyPath: m_MinScale
       value: 0.015
       objectReference: {fileID: 0}
+    - target: {fileID: 3472816354508320807, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_Size.y
+      value: 0.01
+      objectReference: {fileID: 0}
     - target: {fileID: 3655526306739709380, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -863,6 +880,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8593342847470548969, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 675813910}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

@@ -16,7 +16,6 @@ namespace GardenMR
         public Transform m_Rig;
         public GaussianSplatRenderer m_SplatRenderer;
         public Transform m_HandleFrame;
-        public Transform m_MoveHandle;
         public Transform m_ScaleHandle;
 
         [Tooltip("Ground point in the splat asset's local (unscaled) space. Zero = asset origin is the floor.")]

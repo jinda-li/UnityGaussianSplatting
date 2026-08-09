@@ -4,17 +4,17 @@ using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 namespace GardenMR
 {
-    // Hover/press feedback for MoveHandle and ScaleHandle: color + emission (via
-    // MaterialPropertyBlock, so every handle can share the single M_HandleChrome material)
-    // plus a scale pulse on a visual-only child transform.
+    // Hover/press feedback for ScaleHandle: color + emission (via MaterialPropertyBlock, so
+    // every handle can share the single M_HandleChrome material) plus a scale pulse on a
+    // visual-only child transform.
     //
-    // INVARIANT: for MoveHandle, m_Source is NOT an interactable on MoveHandle itself — it is
-    // GardenMRRig's own XRGrabInteractable. MoveHandle has no interactable of its own; the
-    // rig's grab interactable's collider list contains only MoveHandle's collider, so "the
-    // rig is hovered" is logically equivalent to "MoveHandle is hovered." This is intentional,
-    // not an approximation. Anyone adding a second collider to that XRGrabInteractable breaks
-    // this equivalence and must repoint this component instead of silently changing collider
-    // semantics.
+    // There used to be an equivalent MoveHandle instance whose m_Source pointed at GardenMRRig's
+    // own XRGrabInteractable (MoveHandle had no interactable of its own — the rig's grab
+    // interactable's collider list contained only MoveHandle's SphereCollider). MoveHandle is
+    // gone now: the whole miniature is grabbed via a GrabBase box collider under MRRig
+    // (SplatHandleRig.m_GrabBase), which has no Renderer, so it currently gets no hover/press
+    // visual. Reintroducing one means giving GrabBase a visible mesh and pointing a new
+    // HandleVisualState at the rig's XRGrabInteractable the same way MoveHandle's did.
     public class HandleVisualState : MonoBehaviour
     {
         public XRBaseInteractable m_Source;

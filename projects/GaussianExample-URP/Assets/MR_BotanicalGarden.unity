@@ -124,19 +124,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1935388251399753374, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
   m_PrefabInstance: {fileID: 81792502721281065}
   m_PrefabAsset: {fileID: 0}
---- !u!134 &24919696
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: ' (Instance)'
-  serializedVersion: 2
-  m_DynamicFriction: 0.6
-  m_StaticFriction: 0.6
-  m_Bounciness: 0
-  m_FrictionCombine: 0
-  m_BounceCombine: 0
 --- !u!4 &138778817 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
@@ -519,20 +506,19 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8429981633443581382, guid: 6c8af5c8012f01440af6cb2bc3eb987c, type: 3}
   m_PrefabInstance: {fileID: 590463552}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &455720567
-MonoBehaviour:
+--- !u!134 &502970672
+PhysicsMaterial:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/Select Value
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: e6005f29-e4c1-4f3b-8bf7-3a28bab5ca9c
+  m_Name: ' (Instance) (Instance)'
+  serializedVersion: 2
+  m_DynamicFriction: 0.6
+  m_StaticFriction: 0.6
+  m_Bounciness: 0
+  m_FrictionCombine: 0
+  m_BounceCombine: 0
 --- !u!1001 &590463552
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -744,20 +730,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 18ddb545287c546e19cc77dc9fbb2189, type: 3}
---- !u!114 &971259994
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/Select
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: 33754c03-48ec-46ef-9bc6-22ed6bfdd8e8
 --- !u!114 &981758534
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -885,20 +857,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1048759424}
   m_Mesh: {fileID: 4300000, guid: 0d043d617dc0c9b4ab1f161d91d7a8eb, type: 2}
---- !u!114 &1109261179
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/UI Press Value
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: f241c1aa-1050-4338-b2bf-a4a47776693d
 --- !u!114 &1146533591 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7841055261470831569, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
@@ -1222,20 +1180,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7e4a2c91b8d643f0a9e1f5c6d2b8a4e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRPlayer.VRPlayerLocomotionStateMachine
---- !u!114 &1545461943
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/Activate
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: 0c0991c5-d329-4afc-8892-1076b440477c
 --- !u!1 &1609192433
 GameObject:
   m_ObjectHideFlags: 0
@@ -1443,34 +1387,6 @@ MonoBehaviour:
   m_BurstHold: 0.25
   m_CoverageInterval: 0.25
   m_PreviewPainted: 0
---- !u!114 &1728323317
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/UI Press
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: 7e1eced7-c774-4fe5-be8f-d8711f646d9e
---- !u!114 &1752777434
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/Manipulation
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: 93bd97c5-fd23-4853-8045-1b12324aa24e
 --- !u!1 &1767152434 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8490604556990209970, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
@@ -1494,20 +1410,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4413279696530350630, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
   m_PrefabInstance: {fileID: 9182803355687290762}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1911954385
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc1515ab76e54f068e2f2207940fab32, type: 3}
-  m_Name: XRI Left Interaction/Activate Value
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.InputActionReference
-  m_Asset: {fileID: -944628639613478452, guid: c348712bda248c246b8c49b3db54643f, type: 3}
-  m_ActionId: 0c3d0ec9-85a1-45b3-839b-1ca43f859ecd
 --- !u!114 &2022566948
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1534,30 +1436,6 @@ PrefabInstance:
       propertyPath: m_UIScrollInput.m_InputActionReference
       value: 
       objectReference: {fileID: 981758534}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_SelectInput.m_InputActionReferenceValue
-      value: 
-      objectReference: {fileID: 455720567}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_UIPressInput.m_InputActionReferenceValue
-      value: 
-      objectReference: {fileID: 1109261179}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_ActivateInput.m_InputActionReferenceValue
-      value: 
-      objectReference: {fileID: 1911954385}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_SelectInput.m_InputActionReferencePerformed
-      value: 
-      objectReference: {fileID: 971259994}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_UIPressInput.m_InputActionReferencePerformed
-      value: 
-      objectReference: {fileID: 1728323317}
-    - target: {fileID: 37935592140428923, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_ActivateInput.m_InputActionReferencePerformed
-      value: 
-      objectReference: {fileID: 1545461943}
     - target: {fileID: 1935388251399753374, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1.49
@@ -1638,10 +1516,6 @@ PrefabInstance:
       propertyPath: m_HapticOutput.m_InputActionReference
       value: 
       objectReference: {fileID: 2022566948}
-    - target: {fileID: 6198618971987391193, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
-      propertyPath: m_ManipulationInput.m_InputActionReference
-      value: 
-      objectReference: {fileID: 1752777434}
     m_RemovedComponents:
     - {fileID: 729827276247347357, guid: e4bfbf4af0d70974f875b8cbc82c5ec3, type: 3}
     m_RemovedGameObjects: []
@@ -1727,12 +1601,24 @@ PrefabInstance:
       value: SpawnPoint
       objectReference: {fileID: 0}
     - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.52
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.74
       objectReference: {fileID: 0}
     - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.55
       objectReference: {fileID: 0}
     - target: {fileID: 8785212062466907450, guid: fe3ff3a0186d454439c11d60603fec46, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1787,6 +1673,14 @@ PrefabInstance:
       propertyPath: m_PresetInfoIsWorld
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 3472816354508320807, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_Size.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3472816354508320807, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 1839680750}
     - target: {fileID: 3655526306739709380, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1831,10 +1725,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: GardenMR_Shell
       objectReference: {fileID: 0}
-    - target: {fileID: 5889885473130057914, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
-      propertyPath: m_Material
-      value: 
-      objectReference: {fileID: 1839680750}
     - target: {fileID: 6061068140287687836, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_AnchorMax.x
       value: 0
@@ -1863,6 +1753,10 @@ PrefabInstance:
       propertyPath: m_HeadTransform
       value: 
       objectReference: {fileID: 1380530095}
+    - target: {fileID: 7573422379611491718, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7841055261470831569, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_Cutout
       value: 
@@ -1926,7 +1820,7 @@ PrefabInstance:
     - target: {fileID: 8593342847470548969, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_Material
       value: 
-      objectReference: {fileID: 24919696}
+      objectReference: {fileID: 502970672}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

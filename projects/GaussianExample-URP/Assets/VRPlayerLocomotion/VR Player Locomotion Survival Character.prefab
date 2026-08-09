@@ -476,7 +476,7 @@ MonoBehaviour:
   m_InteractionManager: {fileID: 0}
   m_InteractionLayers:
     m_Bits: 1
-  m_Handedness: 2
+  m_Handedness: 1
   m_AttachTransform: {fileID: 0}
   m_KeepSelectedTargetValid: 1
   m_DisableVisualsWhenBlockedInGroup: 1
@@ -518,8 +518,8 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReferencePerformed: {fileID: 0}
-    m_InputActionReferenceValue: {fileID: 0}
+    m_InputActionReferencePerformed: {fileID: 11400000, guid: 89affe27609351e44b413639ff677b9f, type: 2}
+    m_InputActionReferenceValue: {fileID: 11400000, guid: 4917102413aab284fa3edb9717d67fd0, type: 2}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualPerformed: 0
     m_ManualValue: 0
@@ -548,8 +548,8 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReferencePerformed: {fileID: 0}
-    m_InputActionReferenceValue: {fileID: 0}
+    m_InputActionReferencePerformed: {fileID: 11400000, guid: b3b0b5d575c7fda47979c8c77b3d02f2, type: 2}
+    m_InputActionReferenceValue: {fileID: 11400000, guid: 015d60f8805a1664aade53bfe3633766, type: 2}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualPerformed: 0
     m_ManualValue: 0
@@ -631,8 +631,8 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReferencePerformed: {fileID: 0}
-    m_InputActionReferenceValue: {fileID: 0}
+    m_InputActionReferencePerformed: {fileID: 11400000, guid: 717adb5a2be72d944a1ed880aa22b282, type: 2}
+    m_InputActionReferenceValue: {fileID: 11400000, guid: 298204f3f8366a74b8d3eda30219ae5c, type: 2}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualPerformed: 0
     m_ManualValue: 0
@@ -694,7 +694,7 @@ MonoBehaviour:
       m_Interactions: 
       m_SingletonActionBindings: []
       m_Flags: 0
-    m_InputActionReference: {fileID: 0}
+    m_InputActionReference: {fileID: 11400000, guid: f341822b78638284fb530380da70b5a4, type: 2}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualValue: {x: 0, y: 0}
   m_ManipulationXAxisMode: 1
@@ -1400,7 +1400,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.XR.Interaction.Toolkit::UnityEngine.XR.Interaction.Toolkit.Interactors.XRInteractionGroup
   m_GroupName: Left
   m_InteractionManager: {fileID: 0}
-  m_StartingGroupMembers: []
+  m_StartingGroupMembers:
+  - {fileID: 37935592140428923}
   m_StartingInteractionOverridesMap: []
 --- !u!1 &7344019541481406225 stripped
 GameObject:
