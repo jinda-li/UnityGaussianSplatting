@@ -760,12 +760,20 @@ MonoBehaviour:
     m_Processors: 
     m_Interactions: 
     m_SingletonActionBindings:
-    - m_Name: 
+    - m_Name:
       m_Id: 36e891c8-1e18-4416-b041-49544e76ad14
       m_Path: <Keyboard>/c
-      m_Interactions: 
-      m_Processors: 
-      m_Groups: 
+      m_Interactions:
+      m_Processors:
+      m_Groups:
+      m_Action: SummonRig
+      m_Flags: 0
+    - m_Name:
+      m_Id: 8f1a2d4e-6b7c-4d3e-9a1f-5c2b8e4a7d90
+      m_Path: <XRController>{RightHand}/primaryButton
+      m_Interactions:
+      m_Processors:
+      m_Groups:
       m_Action: SummonRig
       m_Flags: 0
     m_Flags: 0

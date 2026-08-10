@@ -19,3 +19,6 @@ MonoBehaviour:
   - m_SceneName: MR_ForestStub
     m_Thumbnail: {fileID: 0}
     m_DisplayId: Forest Stub
+  - m_SceneName: MR_Gallery
+    m_Thumbnail: {fileID: 0}
+    m_DisplayId: Gallery

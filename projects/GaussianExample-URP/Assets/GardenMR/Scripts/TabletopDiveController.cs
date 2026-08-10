@@ -26,13 +26,24 @@ namespace GardenMR
         [Header("Core references")]
         public Transform m_Rig;                          // GardenMRRig: what the player drags/rotates
         public GaussianSplatRenderer m_SplatRenderer;     // scale target; m_SplatRenderer.transform == splat root
-        public GaussianCutout m_Cutout;                   // MR-only bird's-eye cutaway
+        public GaussianCutout m_Cutout;                   // MR-only bird's-eye cutaway (single-cutout setups)
+
+        [Tooltip("Optional parent GameObject holding several GaussianCutout children. All of them are " +
+                 "toggled together with m_Cutout, so an environment can carve its tabletop view with more " +
+                 "than one box. Inactive children are included, so they can be authored disabled.")]
+        public GameObject m_CutoutGroup;
+
+        GaussianCutout[] m_GroupCutouts;
         public SplatHandleRig m_HandleRig;
         public SplatScaleHandle m_ScaleHandle;
 
         [Header("Place-mode UI (active only outside Immersive)")]
         public GameObject m_PlaceModeHandles;             // Move + Scale handle group
         public GameObject m_SpawnPointsGroup;
+
+        [Tooltip("Info orbs are desktop/tabletop clutter and have no VR hand/ray to trigger them while " +
+                 "Place-mode is showing the miniature; shown only once Immersive (dived in). Optional.")]
+        public GameObject m_InfoOrbsGroup;
 
         [Tooltip("Invisible walk-on collision mesh; only needed once the player is inside at full scale.")]
         public GameObject m_CollisionProxy;
@@ -59,18 +70,13 @@ namespace GardenMR
 
         public float m_DefaultTableScale = 0.0375f;
 
-        [Header("Auto place on start")]
-        [Tooltip("Move GardenMRRig in front of the player at startup instead of using the scene-authored pose.")]
-        public bool m_AutoPlaceOnStart = true;
+        [Header("Place pose (used by Summon)")]
         [Tooltip("Horizontal distance from the headset, in meters.")]
         public float m_PlaceDistance = 0.8f;
         [Tooltip("Tabletop height above the tracking floor (XR Origin), in meters.")]
         public float m_PlaceHeight = 0.75f;
         [Tooltip("Extra yaw applied on top of facing the player, in degrees.")]
         public float m_PlaceYawOffset;
-        [Tooltip("Seconds to wait for the headset to report a real pose before placing. " +
-                 "Placement happens as soon as a tracked pose arrives, or when this elapses.")]
-        public float m_PlaceTrackingTimeout = 1f;
 
         [Header("MR passthrough")]
         public ARCameraManager m_ArCameraManager;
@@ -109,8 +115,8 @@ namespace GardenMR
                  "scene still has the old left-hand binding it must be removed by hand in the Inspector.")]
         public InputAction m_ReturnAction = new InputAction("ReturnToTabletop", InputActionType.Button, "<Keyboard>/r");
 
-        [Header("Summon (menu button / keyboard C)")]
-        [Tooltip("Keyboard C by default; the VR trigger is a button inside EnvironmentMenu, not a raw binding.")]
+        [Header("Summon (right controller A / keyboard C)")]
+        [Tooltip("Keyboard C by default, plus the right controller's A button (primaryButton). Also reachable via a button inside EnvironmentMenu.")]
         public InputAction m_SummonAction = new InputAction("SummonRig", InputActionType.Button, "<Keyboard>/c");
         [Tooltip("Summon flight duration is dist * this many seconds per metre, clamped to [m_SummonMinDuration, m_SummonMaxDuration].")]
         public float m_SummonSecondsPerMeter = 0.45f;
@@ -259,8 +265,6 @@ namespace GardenMR
                 m_HandleRig.InitializeFromScene();
             SetMagnitude(m_DefaultTableScale);
             EnterPlace();
-            if (m_AutoPlaceOnStart)
-                StartCoroutine(AutoPlaceRoutine());
             ValidateSpawnPoints();
         }
 
@@ -295,27 +299,9 @@ namespace GardenMR
             }
         }
 
-        // The HMD pose is not available on the first frames of a session (the camera still sits at
-        // the XR Origin), so placing immediately would pin the miniature to a stale forward vector.
-        IEnumerator AutoPlaceRoutine()
-        {
-            float deadline = Time.unscaledTime + Mathf.Max(0f, m_PlaceTrackingTimeout);
-            while (Time.unscaledTime < deadline && !HasTrackedHeadPose())
-                yield return null;
-            PlaceRigInFrontOfPlayer();
-        }
-
-        bool HasTrackedHeadPose()
-        {
-            if (!m_XrCamera)
-                return true; // nothing better to wait for
-            // Untracked, the camera transform stays exactly at its authored local pose under the rig.
-            return m_XrCamera.transform.localPosition.sqrMagnitude > 1e-6f;
-        }
-
         // Pure calculation half of placement: where GardenMRRig should sit on an imaginary
-        // table in front of the headset, facing the player. No side effects, so both the
-        // instant auto-place and the animated Summon flight can share it.
+        // table in front of the headset, facing the player. No side effects; used by the
+        // animated Summon flight.
         public bool TryComputePlacementPose(out Vector3 pos, out Quaternion rot)
         {
             pos = default;
@@ -339,18 +325,7 @@ namespace GardenMR
             return true;
         }
 
-        // Drops GardenMRRig on an imaginary table in front of the headset, facing the player.
-        // Public so a debug key can re-center it later. Instant (no animation) — used for the
-        // very first auto-place on scene start; use RequestSummon() for the animated version.
-        public void PlaceRigInFrontOfPlayer()
-        {
-            if (!m_Rig || CurrentState != State.Place)
-                return;
-            if (TryComputePlacementPose(out var pos, out var rot))
-                m_Rig.SetPositionAndRotation(pos, rot);
-        }
-
-        // Animated version of PlaceRigInFrontOfPlayer, triggered from the menu's Summon
+        // Animated version of the old instant placement, triggered from the menu's Summon
         // button (and <Keyboard>/c for Editor testing). Bound to m_SummonAction.
         public void RequestSummon()
         {
@@ -476,6 +451,7 @@ namespace GardenMR
             CurrentState = State.Place;
             SetActive(m_PlaceModeHandles, true);
             SetActive(m_SpawnPointsGroup, true);
+            SetActive(m_InfoOrbsGroup, false);
             // Avatar and gravity go away before the ground does, otherwise the
             // CharacterController spends a frame falling through the removed proxy.
             SetAvatar(false);
@@ -495,6 +471,7 @@ namespace GardenMR
             CurrentState = State.Immersive;
             SetActive(m_PlaceModeHandles, false);
             SetActive(m_SpawnPointsGroup, false);
+            SetActive(m_InfoOrbsGroup, true);
             SetRigGrabEnabled(false);
             SetCutout(false);
             SetPassthrough(false);
@@ -596,7 +573,24 @@ namespace GardenMR
 
         public void SetActive(GameObject go, bool active) { if (go) go.SetActive(active); }
 
-        void SetCutout(bool enabled) { if (m_Cutout) m_Cutout.enabled = enabled; }
+        // Both the single reference and the optional group are driven together, so a scene can use
+        // either one (or both) without extra wiring.
+        void SetCutout(bool enabled)
+        {
+            if (m_Cutout)
+                m_Cutout.enabled = enabled;
+            if (!m_CutoutGroup)
+                return;
+            // Collected once, including inactive children: the group is toggled active/inactive
+            // below, so a later GetComponentsInChildren would miss them while it is off.
+            m_GroupCutouts ??= m_CutoutGroup.GetComponentsInChildren<GaussianCutout>(true);
+            m_CutoutGroup.SetActive(enabled);
+            foreach (var cutout in m_GroupCutouts)
+            {
+                if (cutout)
+                    cutout.enabled = enabled;
+            }
+        }
 
         void SetPassthrough(bool on)
         {
