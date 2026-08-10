@@ -28,9 +28,15 @@
 
 # Build artifacts
 *.apk
+/projects/**/Build/
 /projects/**/.utmp/
 /projects/**/Recordings/
 *_BurstDebugInformation_DoNotShip/
+
+# Local editor junk
+/projects/**/Assets/Screenshots/
+/projects/**/Assets/_Recovery/
+/projects/**/Assets/_Recovery.meta
 
 # Device/adb log dumps
 quest_log.txt

@@ -711,7 +711,7 @@ MonoBehaviour:
   m_CSSplatUtilities: {fileID: 7200000, guid: ec84f78b836bd4f96a105d6b804f08bd, type: 3}
   m_CSSplatUtilitiesFfx: {fileID: 7200000, guid: 03bca3c792074c9ab911e04808cbef33, type: 3}
   m_SortMethod: 0
-  m_VRSortOnceBothEyes: 0
+  m_VRSortOnceBothEyes: 1
 --- !u!1001 &1189598413
 PrefabInstance:
   m_ObjectHideFlags: 0
