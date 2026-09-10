@@ -57,6 +57,18 @@ Scaniverse / SuperSplat / radiancefields 目录）。实地扫描需要人在巴
 
 ---
 
+## 1.5 素材从哪里来
+
+**素材一律不进 repo**（`origin` 是公开 fork）。获取方式全部记在
+[`tools/eiffel/ASSETS.md`](../../tools/eiffel/ASSETS.md)，要点：
+
+- **Poly Haven 的 15 个素材（CC0）全自动**——`assets.py` 走公开 API，免账号免 key，
+  第一次跑 `scene.py` 时自行下载并缓存到 %EIFFEL_ASSETS%（默认 C:\Users\standalone\Documents\3DGS\Eiffel\assets，约 1.6 GB）
+- **远景城市、地面、雾、天空穹顶、以及回退用的程序化铁塔全部由代码生成**，无需下载
+- **只有铁塔网格要手工拿一次**（Sketchfab 需登录），路径与授权说明见 ASSETS.md。
+  文件不在时 `scene.py` 自动回退到程序化铁塔，构建不会断
+- `scene_hdri.blend`、`dataset/`、训练出的 PLY 都是产物，按第 3 节的命令重建
+
 ## 2. 文件与职责
 
 全部在 `tools/eiffel/`，headless 驱动 Blender 5.1，**不需要 blender MCP 插件**（该插件在 `-b`
