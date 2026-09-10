@@ -35,8 +35,12 @@
 
 # Local editor junk
 /projects/**/Assets/Screenshots/
+/projects/**/Assets/Screenshots.meta
 /projects/**/Assets/_Recovery/
 /projects/**/Assets/_Recovery.meta
+
+# Blender bytecode from the tools/ scripts
+__pycache__/
 
 # Device/adb log dumps
 quest_log.txt
