@@ -199,3 +199,56 @@ def pbr_material(name, asset_id, res="2k", uv_scale=1.0, displacement=False,
                      disp.inputs["Height"])
         nt.links.new(disp.outputs["Displacement"], out.inputs["Displacement"])
     return mat
+
+def retint(objects, value=1.0, saturation=1.0, hue=0.5,
+           inputs=("Diffuse", "Diffuse Dead", "Base Color"), match=None):
+    """Push a Poly Haven vegetation material's albedo without rebuilding it.
+
+    Their models ship a node group per material - the image maps go into named
+    sockets like Diffuse, Rough, Normal, Alpha, and the group does the leaf
+    shading - so there is no Principled node to reach into and no single base
+    colour to set. Inserting a Hue/Saturation node on the group's Diffuse
+    input is the one edit that works on all of them and survives whatever the
+    group does downstream.
+
+    Needed because these albedos are authored for close-up product renders and
+    come out too dark for turf seen across a park: measured against Commons
+    photographs of the Champ de Mars, the lawn was rendering a quarter dark and
+    noticeably less green than the real thing.
+
+    `match` restricts the edit to materials whose name contains that substring,
+    which is how a tree's trunk gets treated differently from its leaves - the
+    parts arrive as one model with materials named for what they are.
+    """
+    seen = set()
+    touched = 0
+    for obj in objects:
+        if obj.type != "MESH":
+            continue
+        for mat in obj.data.materials:
+            if mat is None or mat.name in seen or not mat.node_tree:
+                continue
+            if match is not None and match not in mat.name:
+                continue
+            seen.add(mat.name)
+            nt = mat.node_tree
+            for node in list(nt.nodes):
+                # Group nodes are Poly Haven's own vegetation shaders; the
+                # Principled case covers the plainer materials - bark, branch
+                # cards - that come through as an image straight into a BSDF.
+                if node.bl_idname not in ("ShaderNodeGroup",
+                                          "ShaderNodeBsdfPrincipled"):
+                    continue
+                for socket in node.inputs:
+                    if socket.name not in inputs or not socket.is_linked:
+                        continue
+                    source = socket.links[0].from_socket
+                    nt.links.remove(socket.links[0])
+                    hsv = nt.nodes.new("ShaderNodeHueSaturation")
+                    hsv.inputs["Hue"].default_value = hue
+                    hsv.inputs["Saturation"].default_value = saturation
+                    hsv.inputs["Value"].default_value = value
+                    nt.links.new(source, hsv.inputs["Color"])
+                    nt.links.new(hsv.outputs["Color"], socket)
+                    touched += 1
+    return touched

@@ -218,7 +218,15 @@ def build_city(rng=None, near=235.0, far=620.0):
     facade = haussmann_facade()
     roof = _simple_material("Zinc", (0.055, 0.058, 0.062, 1.0), roughness=0.45,
                             specular=0.35)
-    stone = _simple_material("PalePierre", (0.20, 0.185, 0.155, 1.0))
+    # The landmarks used to be flat untextured stone. At 600 m, lit and hazed,
+    # a featureless box does not read as distant - it reads as a blank card
+    # standing behind the trees, and the Chaillot wings are visible straight
+    # through the tower's arch from the hero camera. The same facade generator
+    # the apartment blocks use gives them a window rhythm; the palace's storeys
+    # are half again as tall as an apartment's, and its stone is paler.
+    stone = haussmann_facade("PalePierre", floor=5.4, bay=4.4,
+                             win_w=1.9, win_h=3.6,
+                             stone=(0.185, 0.170, 0.140, 1.0))
 
     made = 0
     for sign in (1.0, -1.0):

@@ -27,7 +27,8 @@ import bpy
 import mathutils
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from blenderutil import aim  # noqa: E402
+from blenderutil import aim, camera  # noqa: E402
+from scene import HERO_LENS, HERO_LOOK, HERO_POS  # noqa: E402
 
 # Blender's camera looks down -Z with +Y up; COLMAP's looks down +Z with +Y
 # down. This flip converts between the two.
@@ -43,13 +44,28 @@ def camera_poses():
     densest coverage; the elevated arcs exist to give the upper two thirds of
     the tower the parallax it needs, since from the ground every view of the
     spire is nearly the same ray.
+
+    Coverage past the esplanade is a grid, not a ring. The park is a long
+    rectangle walled by rows of pruned planes at x = +/-64 and +/-78 m
+    (parkland.ROW_X), and a circle at any radius big enough to reach the hero
+    viewpoint drives straight through them - either the rings clip the trees or
+    the trees have to be pushed so far out that they stop being walls. A grid
+    laid inside the lawn corridor samples the ground the viewer actually walks
+    on, keeps every camera at least 14 m clear of a trunk, and reaches the hero
+    viewpoint at (34, -116) without any of that.
     """
     poses = []
 
-    # (radius, height, count, target height, lens)
+    # (radius, height, count, target height, lens) - the esplanade, which is
+    # open ground all the way round the tower, so a ring is the right shape.
+    #
+    # The outermost of these used to be 92 m. That is exactly where the tree
+    # rows now pass the tower, so it was moved inside the security fence: past
+    # r = 68 m the ground is no longer open in every direction and a circle
+    # stops being the right sampling pattern for it.
     rings = [
-        (92.0, 1.65, 84, 150.0, 20.0),
-        (92.0, 1.65, 42, 20.0, 35.0),
+        (66.0, 1.65, 84, 160.0, 20.0),
+        (66.0, 1.65, 42, 20.0, 35.0),
         (66.0, 1.65, 72, 170.0, 18.0),
         (44.0, 1.65, 60, 190.0, 16.0),
         (26.0, 1.65, 48, 210.0, 14.0),
@@ -87,6 +103,38 @@ def camera_poses():
             a = 2.0 * math.pi * (i + 0.23 * height) / count
             pos = (math.cos(a) * radius, math.sin(a) * radius, height)
             poses.append((pos, (0.0, 0.0, height + 14.0), 28.0))
+
+    # The lawn corridor. x stays inside the tree rows; y runs from the edge of
+    # the esplanade down the park past the hero viewpoint.
+    for x in (-50.0, -33.0, -17.0, 0.0, 17.0, 33.0, 50.0):
+        for i, y in enumerate((-82.0, -100.0, -118.0, -140.0, -168.0, -205.0,
+                               -250.0, -305.0)):
+            # Aim high near the tower and lower further away, so the whole
+            # structure stays framed as the camera walks back.
+            target = 210.0 - min(abs(y), 300.0) * 0.42
+            poses.append(((x, y, 1.65), (0.0, 0.0, target), 20.0))
+            if i % 2 == 0:
+                poses.append(((x, y, 1.65), (0.0, 0.0, 24.0), 32.0))
+    # The Trocadero side is shorter and has no lawn, but the splat still has to
+    # hold up if the player turns round.
+    for x in (-46.0, 0.0, 46.0):
+        for y in (86.0, 120.0, 165.0):
+            poses.append(((x, y, 1.65), (0.0, 0.0, 170.0), 20.0))
+
+    # A tight cluster on the hero viewpoint itself. Everything else in this
+    # array samples the scene evenly; this is the one place where a couple of
+    # centimetres of head movement has to look right, so it gets its own local
+    # parallax rather than relying on the nearest ring camera tens of metres
+    # away.
+    jitter = random.Random(31)
+    for _ in range(36):
+        pos = (HERO_POS[0] + jitter.uniform(-3.5, 3.5),
+               HERO_POS[1] + jitter.uniform(-3.5, 3.5),
+               HERO_POS[2] + jitter.uniform(-0.45, 0.45))
+        look = (HERO_LOOK[0] + jitter.uniform(-18.0, 18.0),
+                HERO_LOOK[1] + jitter.uniform(-18.0, 18.0),
+                HERO_LOOK[2] + jitter.uniform(-40.0, 40.0))
+        poses.append((pos, look, HERO_LENS))
 
     # A few looking outward and down so the ground and the tree line are not
     # only ever seen edge-on.
@@ -148,7 +196,7 @@ def isolate_tower(scene, tower_name="EiffelTower"):
 
 
 def make_camera(scene, lens):
-    data = bpy.data.cameras.new("RigCam")
+    data = camera("RigCam", 24.0)
     data.lens = lens
     data.sensor_fit = "HORIZONTAL"
     cam = bpy.data.objects.new("RigCam", data)

@@ -10,7 +10,7 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from blenderutil import aim  # noqa: E402
+from blenderutil import aim, camera  # noqa: E402
 
 
 def args():
@@ -33,8 +33,7 @@ def main():
     cfg = args()
     scene = bpy.context.scene
 
-    cam_data = bpy.data.cameras.new("ShotCam")
-    cam_data.lens = cfg["lens"]
+    cam_data = camera("ShotCam", cfg["lens"])
     cam = bpy.data.objects.new("ShotCam", cam_data)
     cam.location = vec(cfg["pos"])
     scene.collection.objects.link(cam)
@@ -66,4 +65,10 @@ def main():
     print("[shot] wrote", scene.render.filepath)
 
 
-main()
+# Guarded: importing this module must not render anything. probes.py in
+# particular is imported by other scripts for PROBES and patch_colours, and
+# an unguarded call rendered the whole default set into the working
+# directory every time - minutes of GPU time and a pile of stray PNGs in
+# the source tree.
+if __name__ == "__main__":
+    main()

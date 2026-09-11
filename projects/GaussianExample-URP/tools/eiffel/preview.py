@@ -11,7 +11,7 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import eiffel_tower  # noqa: E402
-from blenderutil import aim  # noqa: E402
+from blenderutil import aim  # noqa: E402, camera
 from sky import setup_daylight, setup_view  # noqa: E402
 
 
@@ -37,7 +37,7 @@ def main():
     scene = bpy.context.scene
     setup_daylight(scene)
 
-    cam_data = bpy.data.cameras.new("Cam")
+    cam_data = camera("Cam", 35.0)
     cam_data.lens = cfg["lens"]
     cam = bpy.data.objects.new("Cam", cam_data)
     d, h = cfg["dist"], cfg["height"]
