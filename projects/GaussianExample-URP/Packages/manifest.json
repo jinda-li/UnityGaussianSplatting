@@ -8,6 +8,7 @@
     "com.unity.render-pipelines.universal": "17.3.0",
     "com.unity.xr.interaction.toolkit": "3.3.2",
     "com.unity.xr.management": "4.6.0",
+    "com.unity.xr.hands": "1.6.1",
     "com.unity.xr.meta-openxr": "2.5.0",
     "com.unity.xr.openxr": "1.16.1",
     "org.nesnausk.gaussian-splatting": "file:../../../package",
@@ -44,6 +45,7 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.unity.pipeline": "0.6.0-exp.1"
   }
 }
