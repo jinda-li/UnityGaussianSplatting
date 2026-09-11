@@ -40,12 +40,33 @@ namespace EiffelMR
 
         public float Reveal { get; private set; }
 
+        // Resolved on demand rather than only in Awake.
+        //
+        // EiffelBubbleSession calls Clear() from its own OnEnable, and Unity
+        // does not run every Awake in a scene before every OnEnable - it runs
+        // Awake then OnEnable per object, in an order that is not defined. So
+        // whether this component had been woken when the session first cleared
+        // it came down to which object Unity happened to initialise first, and
+        // when it lost that race the shell threw on m_Renderer and the sky
+        // reveal was dead for the rest of the session.
+        MeshRenderer Shell
+        {
+            get
+            {
+                if (!m_Renderer)
+                    m_Renderer = GetComponent<MeshRenderer>();
+                return m_Renderer;
+            }
+        }
+
+        MaterialPropertyBlock Block =>
+            m_Block ?? (m_Block = new MaterialPropertyBlock());
+
         void Awake()
         {
-            m_Renderer = GetComponent<MeshRenderer>();
-            m_Block = new MaterialPropertyBlock();
             SetReveal(0f);
-            m_Renderer.enabled = false;
+            if (Shell)
+                Shell.enabled = false;
         }
 
         /// Start filling in, spreading outwards from `origin` (a world position,
@@ -63,21 +84,26 @@ namespace EiffelMR
                 StopCoroutine(m_Running);
             m_Running = null;
             SetReveal(0f);
-            m_Renderer.enabled = false;
+            if (Shell)
+                Shell.enabled = false;
             m_PassthroughVisible?.Invoke(true);
         }
 
         IEnumerator PlayRoutine(Vector3 origin)
         {
-            m_Renderer.enabled = true;
+            if (Shell)
+                Shell.enabled = true;
             Vector3 dir = origin - transform.position;
             if (dir.sqrMagnitude < 1e-4f)
                 dir = transform.forward;
             dir.Normalize();
 
-            m_Renderer.GetPropertyBlock(m_Block);
-            m_Block.SetVector(k_OriginId, new Vector4(dir.x, dir.y, dir.z, 0f));
-            m_Renderer.SetPropertyBlock(m_Block);
+            if (Shell)
+            {
+                Shell.GetPropertyBlock(Block);
+                Block.SetVector(k_OriginId, new Vector4(dir.x, dir.y, dir.z, 0f));
+                Shell.SetPropertyBlock(Block);
+            }
 
             bool cut = false;
             float t = 0f;
@@ -102,11 +128,11 @@ namespace EiffelMR
         void SetReveal(float value)
         {
             Reveal = value;
-            if (!m_Renderer)
+            if (!Shell)
                 return;
-            m_Renderer.GetPropertyBlock(m_Block);
-            m_Block.SetFloat(k_RevealId, value);
-            m_Renderer.SetPropertyBlock(m_Block);
+            Shell.GetPropertyBlock(Block);
+            Block.SetFloat(k_RevealId, value);
+            Shell.SetPropertyBlock(Block);
         }
     }
 }

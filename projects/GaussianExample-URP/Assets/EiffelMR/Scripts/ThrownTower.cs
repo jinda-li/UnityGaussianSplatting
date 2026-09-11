@@ -195,24 +195,53 @@ namespace EiffelMR
         void OnReleased(SelectExitEventArgs args)
         {
             m_Held = false;
-            Vector3 velocity = ReleaseVelocity();
+            Throw(ReleaseVelocity());
+        }
 
+        /// Release the miniature at this velocity. Returns true if the throw
+        /// was taken over by the scripted arc - that is, if it is going to land
+        /// in the ring. Everything else is left to physics on purpose.
+        ///
+        /// Public so the flow can be driven without a headset: without this the
+        /// only way into the throw is an XRGrabInteractable event, and the one
+        /// part of this demo most worth testing is the part that needs a room,
+        /// two hands and a Quest to reach.
+        public bool Throw(Vector3 velocity)
+        {
             if (velocity.magnitude < m_MinThrowSpeed || !m_Ring)
-                return;
+                return false;
             if (m_Dive && m_Dive.CurrentState != TabletopDiveController.State.Place)
-                return;
+                return false;
 
             if (!m_Ring.PredictLanding(transform.position, velocity, m_Gravity,
                                        out Vector3 impact, out float flight))
-                return;
+                return false;
 
             if (!m_Ring.Contains(impact))
             {
                 Missed?.Invoke();
-                return;
+                return false;
             }
 
             m_Flight = StartCoroutine(FlightRoutine(velocity, flight));
+            return true;
+        }
+
+        /// The velocity that would drop the miniature into the centre of the
+        /// ring from where it is now, given a time of flight. The test harness
+        /// throws with this; a player aims by hand.
+        public Vector3 AimAtRing(float flightTime = 0.9f)
+        {
+            if (!m_Ring)
+                return Vector3.zero;
+            Vector3 from = transform.position;
+            Vector3 to = m_Ring.transform.position;
+            to.y = m_Ring.m_FloorY;
+            Vector3 flat = new Vector3(to.x - from.x, 0f, to.z - from.z);
+            float t = Mathf.Max(flightTime, 0.05f);
+            // y = y0 + v*t - g*t^2/2, solved for v.
+            float vy = ((to.y - from.y) + 0.5f * m_Gravity * t * t) / t;
+            return flat / t + Vector3.up * vy;
         }
 
         // Oldest-to-newest secant over the ring buffer. Averaging the whole

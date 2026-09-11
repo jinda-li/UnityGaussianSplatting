@@ -477,6 +477,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: 3DGS_MR_Shell
       objectReference: {fileID: 0}
+    - target: {fileID: 6061068140287687836, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6061068140287687836, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6061068140287687836, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6061068140287687836, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7841055261470831569, guid: 2265f44dbd10d414abbf319163eb9b9a, type: 3}
       propertyPath: m_DiveDuration
       value: 2.2
@@ -545,6 +561,7 @@ MonoBehaviour:
   m_Reveal: {fileID: 1807685773}
   m_HandleRig: {fileID: 1406497887}
   m_SplatRoot: {fileID: 0}
+  m_Particles: {fileID: 0}
   m_LandingSpawn: {fileID: 0}
   m_MinThrowSpeed: 1.1
   m_VelocitySamples: 5
@@ -576,8 +593,62 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  m_SolidifyBy: 0.75
   m_DiveDuration: 2.2
   m_LandingHold: 0.12
+--- !u!1 &1419726162
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1419726164}
+  - component: {fileID: 1419726163}
+  m_Layer: 0
+  m_Name: FlowProbe
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1419726163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1419726162}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd27327c8aa75a443b3e5c927e1b835d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EiffelMR.EiffelFlowProbe
+  m_Session: {fileID: 0}
+  m_Bubble: {fileID: 0}
+  m_Tower: {fileID: 0}
+  m_Ring: {fileID: 0}
+  m_Reveal: {fileID: 0}
+  m_Dive: {fileID: 0}
+  m_RunOnStart: 0
+  m_Settle: 0.6
+  m_FlightTime: 0.9
+--- !u!4 &1419726164
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1419726162}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1450271773
 GameObject:
   m_ObjectHideFlags: 0
@@ -806,3 +877,4 @@ SceneRoots:
   m_Roots:
   - {fileID: 1406497885}
   - {fileID: 1061378836}
+  - {fileID: 1419726164}
