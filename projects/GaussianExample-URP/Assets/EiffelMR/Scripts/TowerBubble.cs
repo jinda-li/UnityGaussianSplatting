@@ -92,6 +92,13 @@ namespace EiffelMR
             m_Collider = GetComponent<SphereCollider>();
             m_Collider.isTrigger = true;
             m_Block = new MaterialPropertyBlock();
+            // Neither scene builder assigned the shell, and with it unset the
+            // pop swell never ran and the film was never switched off: the
+            // bubble "popped" - IsPopped true, tower released - and went on
+            // hanging in the air, empty. The flow probe passed because it
+            // checked IsPopped, not the picture.
+            if (!m_Shell)
+                m_Shell = GetComponent<Renderer>();
         }
 
         void OnEnable()

@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Text;
 using UnityEngine;
-using GardenMR;
 
 namespace EiffelMR
 {
@@ -23,7 +22,7 @@ namespace EiffelMR
         public ThrownTower m_Tower;
         public LandingRing m_Ring;
         public HexSkyReveal m_Reveal;
-        public TabletopDiveController m_Dive;
+        public EiffelWorld m_World;
 
         [Tooltip("Run the sequence as soon as Play starts.")]
         public bool m_RunOnStart = true;
@@ -33,6 +32,13 @@ namespace EiffelMR
 
         [Tooltip("Time of flight the aimed throw is solved for.")]
         public float m_FlightTime = 0.9f;
+
+        [Tooltip("Seconds to stay in the arrived world before the reset, so " +
+                 "there is time to look (or to take a screenshot).")]
+        public float m_HoldImmersive;
+
+        /// Fired once the world has arrived, before the hold.
+        public event System.Action ImmersiveReached;
 
         public bool Passed { get; private set; }
         public string Report { get; private set; } = "";
@@ -49,7 +55,7 @@ namespace EiffelMR
                 if (!m_Tower) m_Tower = m_Session.m_Tower;
                 if (!m_Ring) m_Ring = m_Session.m_Ring;
                 if (!m_Reveal) m_Reveal = m_Session.m_Reveal;
-                if (!m_Dive) m_Dive = m_Session.m_Dive;
+                if (!m_World) m_World = m_Session.m_World;
             }
         }
 
@@ -70,8 +76,7 @@ namespace EiffelMR
         // reported "there is a splat" for an empty one and turned the skip back
         // into a failure - measuring the presence of the thing that holds the
         // splat rather than the splat.
-        bool HasSplat => (m_Dive && m_Dive.m_SplatRenderer)
-                         || (m_Tower && m_Tower.m_SplatRoot);
+        bool HasSplat => m_World && m_World.CanGrow;
 
         void Skip(string what, string why)
         {
@@ -124,6 +129,9 @@ namespace EiffelMR
             m_Bubble.Pop();
             yield return new WaitForSeconds(Mathf.Max(m_Bubble.m_PopDuration, 0f) + m_Settle);
             Check("poke pops the bubble", m_Bubble.IsPopped);
+            var film = m_Bubble.m_Shell ? m_Bubble.m_Shell : m_Bubble.GetComponent<Renderer>();
+            Check("the film is gone after the pop", film && !film.enabled,
+                  film ? "shell enabled=" + film.enabled : "no shell renderer");
             Check("miniature comes loose",
                   m_Session.Current == EiffelBubbleSession.State.Loose,
                   "state=" + m_Session.Current);
@@ -177,7 +185,7 @@ namespace EiffelMR
                           "reveal=" + m_Reveal.Reveal.ToString("F3"));
                 }
 
-                if (m_Dive && !HasSplat)
+                if (m_World && !HasSplat)
                 {
                     Skip("the world grows around the player",
                          "no splat assigned, Dive() has no world to grow");
@@ -185,21 +193,24 @@ namespace EiffelMR
                           m_Session.Current == EiffelBubbleSession.State.Immersive,
                           "state=" + m_Session.Current);
                 }
-                else if (m_Dive)
+                else if (m_World)
                 {
                     float diveDeadline = Time.time + m_Tower.m_DiveDuration + 3f;
-                    while (m_Dive.CurrentState == TabletopDiveController.State.Place
-                           && Time.time < diveDeadline)
+                    while (m_World.InPlace && Time.time < diveDeadline)
                         yield return null;
-                    Check("the world grows around the player",
-                          m_Dive.CurrentState != TabletopDiveController.State.Place,
-                          "dive=" + m_Dive.CurrentState);
+                    Check("the world grows around the player", !m_World.InPlace);
 
-                    while (m_Dive.IsBusy && Time.time < diveDeadline + 3f)
+                    while (m_World.IsBusy && Time.time < diveDeadline + 3f)
                         yield return null;
+                    Check("the world arrives at 1:1",
+                          m_World.IsImmersive && Mathf.Abs(m_World.MeasuredScale - 1f) < 0.02f,
+                          "scale=" + m_World.MeasuredScale.ToString("G4"));
                     Check("it ends immersive",
                           m_Session.Current == EiffelBubbleSession.State.Immersive,
                           "state=" + m_Session.Current);
+                    ImmersiveReached?.Invoke();
+                    if (m_HoldImmersive > 0f)
+                        yield return new WaitForSeconds(m_HoldImmersive);
                 }
             }
 
@@ -213,16 +224,20 @@ namespace EiffelMR
                   m_Session.Current == EiffelBubbleSession.State.Bubble,
                   "state=" + m_Session.Current);
             Check("the returned bubble is intact", !m_Bubble.IsPopped);
+            if (HasSplat)
+                Check("the world is a miniature again",
+                      m_World.InPlace
+                      && Mathf.Abs(m_World.MeasuredScale - m_World.TableScale)
+                         < m_World.TableScale * 0.05f,
+                      "scale=" + m_World.MeasuredScale.ToString("G4"));
 
             Finish();
         }
 
         float ScaleNow()
         {
-            if (m_Tower && m_Tower.m_SplatRoot)
-                return m_Tower.m_SplatRoot.localScale.x;
-            if (m_Dive && m_Dive.m_SplatRenderer)
-                return m_Dive.m_SplatRenderer.transform.localScale.x;
+            if (m_World && m_World.CanGrow)
+                return m_World.MeasuredScale;
             // Placeholder case: the box is its own model.
             return m_Tower ? m_Tower.transform.localScale.x : 0f;
         }

@@ -17,6 +17,56 @@ One button, on a Quest 3, in passthrough:
 A throw that misses is left to physics. It bounces, it rolls, you go and pick it
 up. A target you cannot miss is not a target.
 
+## Trying it on a desktop, no headset, no trained splat
+
+The flow runs on a desktop against the Blender scene exported as meshes, with
+the tower drawn as a point cloud sampled off its own surface:
+
+```
+blender --background scene_hdri.blend --python tools/eiffel/export_unity.py
+Tools > Eiffel MR > Build Eiffel Desktop Scene
+```
+
+The export writes `Assets/EiffelMR/Generated/` (the tower, one cut-down tree,
+the other repeated props, the park as one joined mesh with an empty per prop
+instance, and Hero / HeroLook / Sun markers). It is not committed - the tower
+mesh's licence is unclear (see `tools/eiffel/ASSETS.md`) - and neither is the
+`Eiffel_Desktop.unity` scene built from it.
+
+Press Play, then:
+
+| Key | Does |
+|---|---|
+| Space | the one button: a bubble, or back to a bubble |
+| Left click | poke the bubble under the cursor |
+| E | pick the miniature up |
+| T | throw it at the ring |
+| G | throw it wide (physics takes over) |
+| F | drop it |
+| Right drag | look around |
+
+The landing puts the hero viewpoint - `(34, -116)` in the Blender scene, on the
+lawn looking up at the tower - under the player's feet, turned so that view is
+the one in front of them.
+
+`EiffelFlowProbe` in the scene walks the same path automatically; tick
+`m_RunOnStart` and press Play. Current run: 19 checks, all pass.
+
+### How the two builds share one interaction
+
+`ThrownTower` and `EiffelBubbleSession` talk to an `EiffelWorld`, not to the
+splat. Two worlds implement it:
+
+- `SplatDiveWorld` - the trained splat, through the Garden's
+  `TabletopDiveController` (MR_Eiffel)
+- `MeshWorld` - the exported meshes; the world root is parented under the
+  miniature at table scale with the park switched off, and grows log-linearly to
+  1:1 on landing (Eiffel_Desktop)
+
+In the mesh world the points (`TowerPointCloud`, `TowerPoints.shader`) settle
+onto the tower's surface and fade while the solid tower dissolves in under them
+(`TowerDissolve.shader`), so it is still one tower condensing, not a swap.
+
 ## Building the scene
 
 ```

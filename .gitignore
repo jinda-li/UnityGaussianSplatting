@@ -45,3 +45,13 @@ __pycache__/
 # Device/adb log dumps
 quest_log.txt
 quest_app_log.txt
+
+# Eiffel scene exported for Unity by tools/eiffel/export_unity.py. Not committed:
+# the tower mesh has unclear licensing (see tools/eiffel/ASSETS.md) and
+# everything here regenerates from the Blender scene in one command. The desktop
+# test scene is built from it by Tools > Eiffel MR > Build Eiffel Desktop Scene,
+# so it would only arrive with broken references.
+projects/GaussianExample-URP/Assets/EiffelMR/Generated/
+projects/GaussianExample-URP/Assets/EiffelMR/Generated.meta
+projects/GaussianExample-URP/Assets/EiffelMR/Eiffel_Desktop.unity
+projects/GaussianExample-URP/Assets/EiffelMR/Eiffel_Desktop.unity.meta

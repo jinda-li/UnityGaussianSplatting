@@ -24,12 +24,12 @@ left as `*.part` and re-fetched, so a failed run is safe to repeat.
 
 | Asset ID | Kind | Used for |
 |---|---|---|
-| `kloofendal_48d_partly_cloudy_puresky` | HDRI | Sky and all scene lighting |
+| `drakensberg_solitary_mountain_puresky` | HDRI | Sky and all scene lighting (clear sky - see plan 4.32) |
 | `flower_scattered_gravel` | texture | The esplanade the player stands on |
 | `leafy_grass` | texture | Lawn base under the scattered clumps |
 | `gravel_floor_02` | texture | Allees crossing the lawn |
 | `large_sandstone_blocks` | texture | The tower's masonry piers |
-| `metal_plate` | texture | Ironwork normal and roughness |
+| `rusty_painted_metal` | texture | Ironwork paint, normal and roughness |
 | `rust_coarse_01` | texture | Rust patches on the ironwork |
 | `grass_medium_01` | model | Grass clumps (particle instanced) |
 | `jacaranda_tree` | model | Main tree of the tree line |

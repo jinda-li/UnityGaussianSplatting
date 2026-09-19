@@ -17,6 +17,10 @@ Shader "EiffelMR/HexSkyReveal"
     Properties
     {
         _Cube ("Sky Cubemap", Cube) = "grey" {}
+        _Pano ("Sky Panorama (lat-long)", 2D) = "grey" {}
+        [Toggle] _UsePano ("Use Panorama", Float) = 0
+        _Rotation ("Panorama Rotation (deg)", Float) = 0
+        _Exposure ("Exposure", Float) = 1
         _Tint ("Tint", Color) = (1, 1, 1, 1)
         _Reveal ("Reveal", Range(0, 1)) = 0
         _HexScale ("Hex Scale", Range(4, 120)) = 34
@@ -67,6 +71,11 @@ Shader "EiffelMR/HexSkyReveal"
 
             TEXTURECUBE(_Cube);
             SAMPLER(sampler_Cube);
+            // The same equirect the skybox shows, sampled the same way as
+            // Skybox/Panoramic - including its rotation - so that when the last
+            // tile lands and the skybox takes over, the sun does not move.
+            TEXTURE2D(_Pano);
+            SAMPLER(sampler_Pano);
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _Tint;
@@ -77,7 +86,23 @@ Shader "EiffelMR/HexSkyReveal"
                 float _EdgeIntensity;
                 float _Directional;
                 float4 _Origin;
+                float _UsePano;
+                float _Rotation;
+                float _Exposure;
             CBUFFER_END
+
+            float3 SkyColour(float3 dir)
+            {
+                if (_UsePano < 0.5)
+                    return SAMPLE_TEXTURECUBE(_Cube, sampler_Cube, dir).rgb;
+                float a = radians(_Rotation);
+                float s = sin(a), c = cos(a);
+                float3 d = float3(c * dir.x - s * dir.z, dir.y, s * dir.x + c * dir.z);
+                float lon = atan2(d.z, d.x);
+                float lat = acos(clamp(d.y, -1.0, 1.0));
+                float2 uv = float2(0.5, 1.0) - float2(lon * 0.5 / PI, lat / PI);
+                return SAMPLE_TEXTURE2D_LOD(_Pano, sampler_Pano, uv, 0).rgb * _Exposure;
+            }
 
             // Axial hex grid. Returns the cell's id in xy and the normalised
             // distance to the cell edge in z (0 at the centre, 1 at the edge).
@@ -142,7 +167,7 @@ Shader "EiffelMR/HexSkyReveal"
                 if (fill <= 0.001)
                     discard;
 
-                float3 sky = SAMPLE_TEXTURECUBE(_Cube, sampler_Cube, dir).rgb * _Tint.rgb;
+                float3 sky = SkyColour(dir) * _Tint.rgb;
 
                 // Glowing edge only on tiles that just arrived.
                 float rim = smoothstep(1.0 - _EdgeWidth, 1.0, cell.z);

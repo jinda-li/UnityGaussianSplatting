@@ -28,7 +28,7 @@ namespace EiffelMR
         public ThrownTower m_Tower;
         public LandingRing m_Ring;
         public HexSkyReveal m_Reveal;
-        public TabletopDiveController m_Dive;
+        public EiffelWorld m_World;
 
         [Tooltip("Root holding the bubble, the miniature and the ring. Hidden in Idle.")]
         public GameObject m_PlayGroup;
@@ -70,8 +70,8 @@ namespace EiffelMR
         {
             if (!m_Head && Camera.main)
                 m_Head = Camera.main.transform;
-            if (!m_Dive)
-                m_Dive = FindFirstObjectByType<TabletopDiveController>();
+            if (!m_World)
+                m_World = FindFirstObjectByType<EiffelWorld>();
         }
 
         void OnEnable()
@@ -103,7 +103,13 @@ namespace EiffelMR
             if (Time.unscaledTime - m_LastToggle < m_Debounce)
                 return;
             m_LastToggle = Time.unscaledTime;
+            Toggle();
+        }
 
+        /// The one button: a bubble from nothing, or back to a bubble from
+        /// anything else.
+        public void Toggle()
+        {
             if (Current == State.Idle)
                 SpawnBubble();
             else
@@ -134,14 +140,18 @@ namespace EiffelMR
                 m_Tower.transform.localPosition = Vector3.zero;
                 m_Tower.transform.localRotation = Quaternion.identity;
             }
+            else if (m_World && m_World.PlacesItself)
+            {
+                // The splat rig is owned and placed by its dive controller,
+                // which has the reachability and floor-height logic already.
+                m_World.Present();
+            }
             else
             {
-                // The real case: the miniature is the splat rig, which
-                // TabletopDiveController owns and places. Ask it to bring the
-                // rig to the player rather than moving it ourselves - it has
-                // the reachability and floor-height logic already.
-                if (m_Dive)
-                    m_Dive.RequestSummon();
+                // A world that does not place itself: put the miniature where
+                // the bubble goes, upright and facing the player, and let the
+                // bubble follow it.
+                PlaceMiniatureInFront();
             }
 
             // Re-enabling the bubble runs its own OnEnable, which re-arms the
@@ -162,12 +172,12 @@ namespace EiffelMR
 
         IEnumerator ResetRoutine()
         {
-            if (m_Dive && m_Dive.CurrentState != TabletopDiveController.State.Place)
+            if (m_World && !m_World.InPlace)
             {
-                m_Dive.Return();
-                // Return() runs its own transition; wait it out rather than
+                m_World.Leave();
+                // Leave() runs its own transition; wait it out rather than
                 // spawning a bubble into the middle of the world shrinking.
-                while (m_Dive.IsBusy)
+                while (m_World.IsBusy)
                     yield return null;
             }
 
@@ -209,6 +219,30 @@ namespace EiffelMR
                     origin.z + forward.z * m_RingDistance);
                 m_Ring.m_FloorY = m_FloorY;
             }
+        }
+
+        void PlaceMiniatureInFront()
+        {
+            if (!m_Head || !m_Tower)
+                return;
+            Vector3 forward = m_Head.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 1e-4f)
+                forward = Vector3.forward;
+            forward.Normalize();
+            float lift = m_Bubble ? m_Bubble.m_CentreOffset : 0f;
+            var body = m_Tower.GetComponent<Rigidbody>();
+            if (body)
+            {
+                body.isKinematic = true;
+                body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
+            }
+            m_Tower.Teleport(
+                new Vector3(m_Head.position.x + forward.x * m_BubbleDistance,
+                            m_FloorY + m_BubbleHeight - lift,
+                            m_Head.position.z + forward.z * m_BubbleDistance),
+                Quaternion.LookRotation(-forward, Vector3.up));
         }
 
         void OnBubblePopped(TowerBubble bubble)

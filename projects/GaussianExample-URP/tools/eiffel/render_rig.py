@@ -147,6 +147,51 @@ def camera_poses():
     return poses
 
 
+def hero_poses(radius=4.0, ring=8, yaw_steps=12, eye=(1.5, 1.8),
+               pitches=(0.0, 24.0), up_pitches=(38.0, 55.0)):
+    """Look-around from the hero viewpoint only.
+
+    The demo lands the player at one spot - scene.HERO_POS, on the lawn looking
+    up at the tower - and they look around from there without walking far. So
+    this is what the splat has to hold: every direction from a few metres of
+    lawn, not the whole park. A disc of standing positions (the centre plus a
+    ring), a full turn of yaw at each at two pitches, and extra frames tilted
+    up at the tower, which fills far more of the view from here than anything
+    else does.
+
+    What this gives up, knowingly: the tower is seen from one side only, so a
+    splat trained on this is not good from behind - including when it is shrunk
+    into the player's hand. The desktop build sidesteps that by drawing the
+    miniature from the mesh.
+    """
+    cx, cy, _ = HERO_POS
+    spots = [(cx, cy)]
+    for i in range(ring):
+        a = 2.0 * math.pi * i / ring
+        spots.append((cx + math.cos(a) * radius, cy + math.sin(a) * radius))
+    poses = []
+    for k, (x, y) in enumerate(spots):
+        z = eye[k % len(eye)]
+        # Offset every other spot's yaw by half a step so neighbouring spots do
+        # not all look along the same few directions.
+        phase = 0.5 * (k % 2)
+        for j in range(yaw_steps):
+            yaw = 2.0 * math.pi * (j + phase) / yaw_steps
+            for pitch in pitches:
+                pch = math.radians(pitch)
+                d = (math.cos(yaw) * math.cos(pch), math.sin(yaw) * math.cos(pch),
+                     math.sin(pch))
+                poses.append(((x, y, z), (x + d[0] * 50.0, y + d[1] * 50.0,
+                                          z + d[2] * 50.0), 24.0))
+        # up at the tower
+        tx, ty = -x, -y
+        flat = math.hypot(tx, ty)
+        for pitch in up_pitches:
+            h = math.tan(math.radians(pitch)) * flat
+            poses.append(((x, y, z), (0.0, 0.0, z + h), HERO_LENS))
+    return poses
+
+
 def object_poses():
     """Hemisphere around the tower alone, for the splat the player holds.
 
@@ -620,7 +665,9 @@ if __name__ == "__main__":
     out = os.path.abspath(cfg["out"])
     res_x = cfg["res"]
     res_y = int(res_x * 0.75)
-    if cfg["mode"] == "object":
+    if cfg["mode"] == "hero":
+        poses = hero_poses()
+    elif cfg["mode"] == "object":
         isolate_tower(bpy.context.scene)
         poses = object_poses()
     else:

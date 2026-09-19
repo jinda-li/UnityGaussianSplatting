@@ -112,19 +112,26 @@ namespace EiffelMR.EditorTools
             session.m_Tower = tower;
             session.m_Ring = ring;
             session.m_Reveal = reveal;
-            session.m_Dive = dive;
+            // The splat, driven through the Garden's dive controller. Lives on
+            // the dive controller's own object so it goes wherever that does.
+            SplatDiveWorld world = null;
+            if (dive)
+            {
+                world = dive.GetComponent<SplatDiveWorld>();
+                if (!world)
+                    world = dive.gameObject.AddComponent<SplatDiveWorld>();
+                world.m_Dive = dive;
+                world.m_HandleRig = dive.m_HandleRig;
+                world.m_SplatRoot = dive.m_SplatRenderer ? dive.m_SplatRenderer.transform : null;
+                world.m_LandingSpawn = dive.m_DefaultSpawnPoint;
+                world.m_Particles = SetUpParticles(dive);
+            }
+            session.m_World = world;
 
             bubble.m_Tower = tower.GetComponent<Rigidbody>();
             tower.m_Ring = ring;
             tower.m_Reveal = reveal;
-            tower.m_Dive = dive;
-            if (dive)
-            {
-                tower.m_HandleRig = dive.m_HandleRig;
-                tower.m_SplatRoot = dive.m_SplatRenderer ? dive.m_SplatRenderer.transform : null;
-                tower.m_LandingSpawn = dive.m_DefaultSpawnPoint;
-                tower.m_Particles = SetUpParticles(dive);
-            }
+            tower.m_World = world;
 
             if (!dive)
             {
@@ -315,7 +322,7 @@ namespace EiffelMR.EditorTools
                              new Color(0.22f, 0.15f, 0.09f));
         }
 
-        static LandingRing BuildRing(Transform parent)
+        internal static LandingRing BuildRing(Transform parent)
         {
             var go = new GameObject("LandingRing");
             go.transform.SetParent(parent, false);
@@ -339,7 +346,7 @@ namespace EiffelMR.EditorTools
             return ring;
         }
 
-        static HexSkyReveal BuildSkyShell(Transform parent)
+        internal static HexSkyReveal BuildSkyShell(Transform parent)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             go.name = "HexSkyShell";
@@ -357,7 +364,7 @@ namespace EiffelMR.EditorTools
             return go.AddComponent<HexSkyReveal>();
         }
 
-        static Material LoadOrCreate(string name, string shaderName, Color? colour = null)
+        internal static Material LoadOrCreate(string name, string shaderName, Color? colour = null)
         {
             string path = $"{k_MaterialDir}/{name}.mat";
             var existing = AssetDatabase.LoadAssetAtPath<Material>(path);

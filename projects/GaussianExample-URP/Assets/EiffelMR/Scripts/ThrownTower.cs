@@ -35,25 +35,12 @@ namespace EiffelMR
     {
         [Header("References")]
         public LandingRing m_Ring;
-        public TabletopDiveController m_Dive;
         public HexSkyReveal m_Reveal;
 
-        [Tooltip("Scales the splat without moving the rig. Left empty, the splat " +
-                 "renderer's own transform is scaled instead.")]
-        public SplatHandleRig m_HandleRig;
-
-        [Tooltip("Only used when there is no handle rig.")]
-        public Transform m_SplatRoot;
-
-        [Tooltip("Draws the miniature as a drifting cloud of its own splats. " +
-                 "Ramped to solid along the throw, so the tower condenses out " +
-                 "of its own particles at the same time as it grows.")]
-        public TowerParticles m_Particles;
-
-        [Tooltip("Spawn point whose splat-local position becomes where the player " +
-                 "stands once the world is at 1:1. For the Eiffel scene this is " +
-                 "the hero viewpoint, splat-local (34, -116, 1.65).")]
-        public SplatSpawnPoint m_LandingSpawn;
+        [Tooltip("What this is a miniature of: the trained splat (SplatDiveWorld) " +
+                 "or the exported meshes (MeshWorld). Scaled along the throw, " +
+                 "condensed from points to solid, and grown into on landing.")]
+        public EiffelWorld m_World;
 
         [Header("Throw")]
         [Tooltip("Release speed below this is putting it down, not throwing it.")]
@@ -111,37 +98,58 @@ namespace EiffelMR
             m_Body = GetComponent<Rigidbody>();
             m_Samples = new Vector3[Mathf.Max(2, m_VelocitySamples)];
             m_SampleTimes = new float[m_Samples.Length];
-            if (!m_Dive)
-                m_Dive = FindFirstObjectByType<TabletopDiveController>();
-            if (!m_HandleRig && m_Dive)
-                m_HandleRig = m_Dive.m_HandleRig;
-            if (!m_Particles)
-                m_Particles = FindFirstObjectByType<TowerParticles>();
+            if (!m_World)
+                m_World = FindFirstObjectByType<EiffelWorld>();
         }
 
-        float TableScale => m_Dive ? m_Dive.m_DefaultTableScale : 0.0009f;
+        float TableScale => m_World ? m_World.TableScale : 0.0009f;
+
+        /// Move the miniature while it is under script control (in the bubble,
+        /// held on a desktop, in flight).
+        ///
+        /// Through the Rigidbody as well as the Transform, not the Transform
+        /// alone. The body interpolates, and an interpolated body writes its
+        /// own pose back over the Transform every frame - so a Transform-only
+        /// move is undone on the next frame. That is how the miniature ended
+        /// up at the room origin instead of in front of the player, and how a
+        /// throw could look like it never left the hand while every check on
+        /// transform.position still passed.
+        public void Teleport(Vector3 position, Quaternion rotation)
+        {
+            if (!m_Body)
+                m_Body = GetComponent<Rigidbody>();
+            if (m_Body)
+            {
+                m_Body.position = position;
+                m_Body.rotation = rotation;
+            }
+            transform.SetPositionAndRotation(position, rotation);
+        }
 
         void ApplyScale(float magnitude)
         {
-            if (m_HandleRig)
-                m_HandleRig.ApplyScaleKeepRig(magnitude);
-            else if (m_SplatRoot)
-                m_SplatRoot.localScale = Vector3.one * magnitude;
+            if (m_World)
+                m_World.SetMiniatureScale(magnitude);
         }
 
-        /// Put the splat back to the size it is inside the bubble.
+        void SetSolidify(float amount)
+        {
+            if (m_World)
+                m_World.SetSolidify(amount);
+        }
+
+        /// Put the world back to the size it is inside the bubble.
         public void ResetToMiniature()
         {
             if (m_Flight != null)
             {
                 StopCoroutine(m_Flight);
                 m_Flight = null;
-                if (m_Dive)
-                    m_Dive.EndExclusiveTransition();
+                if (m_World)
+                    m_World.EndFlight();
             }
-            ApplyScale(TableScale);
-            if (m_Particles)
-                m_Particles.Solidify = 0f;
+            if (m_World)
+                m_World.ResetToTable();
             if (m_Body)
             {
                 m_Body.linearVelocity = Vector3.zero;
@@ -174,11 +182,8 @@ namespace EiffelMR
                 // and the dive controller stays locked.
                 StopCoroutine(m_Flight);
                 m_Flight = null;
-                ApplyScale(TableScale);
-                if (m_Particles)
-                    m_Particles.Solidify = 0f;
-                if (m_Dive)
-                    m_Dive.EndExclusiveTransition();
+                if (m_World)
+                    m_World.CancelFlight();
             }
         }
 
@@ -210,7 +215,7 @@ namespace EiffelMR
         {
             if (velocity.magnitude < m_MinThrowSpeed || !m_Ring)
                 return false;
-            if (m_Dive && m_Dive.CurrentState != TabletopDiveController.State.Place)
+            if (m_World && !m_World.InPlace)
                 return false;
 
             if (!m_Ring.PredictLanding(transform.position, velocity, m_Gravity,
@@ -262,14 +267,8 @@ namespace EiffelMR
 
         IEnumerator FlightRoutine(Vector3 velocity, float flightTime)
         {
-            if (m_Dive)
-            {
-                m_Dive.SetRigGrabEnabled(false);
-                // Still in Place while it is in the air, so without this an
-                // environment switch could fire mid-flight. Released just
-                // before Dive(), which refuses to start while it is held.
-                m_Dive.BeginExclusiveTransition();
-            }
+            if (m_World)
+                m_World.BeginFlight();
 
             m_Body.isKinematic = true;
 
@@ -287,8 +286,7 @@ namespace EiffelMR
                 pos += velocity * dt;
                 t += dt;
 
-                transform.position = pos;
-                transform.Rotate(spin * dt, Space.World);
+                Teleport(pos, Quaternion.Euler(spin * dt) * transform.rotation);
                 // Exponential, not linear: scale is perceived logarithmically,
                 // and lerping it makes the tower appear to stall near the end.
                 float k = m_GrowthCurve.Evaluate(Mathf.Clamp01(t / total));
@@ -297,19 +295,16 @@ namespace EiffelMR
                 // the tower wants to be solid by the time it touches down, and
                 // the last of the cloud catching up mid-air reads as the thing
                 // pulling itself together rather than as an effect ending.
-                if (m_Particles)
-                    m_Particles.Solidify = Mathf.Clamp01(t / (total * m_SolidifyBy));
+                SetSolidify(Mathf.Clamp01(t / (total * m_SolidifyBy)));
                 yield return null;
             }
 
             // Settle upright: Dive()'s own maths assumes the miniature is not
             // lying on its side when the world starts to grow out of it.
             pos.y = m_Ring.m_FloorY;
-            transform.position = pos;
-            transform.rotation = Quaternion.Euler(0f, transform.rotation.eulerAngles.y, 0f);
+            Teleport(pos, Quaternion.Euler(0f, transform.rotation.eulerAngles.y, 0f));
             ApplyScale(end);
-            if (m_Particles)
-                m_Particles.Solidify = 1f;
+            SetSolidify(1f);
             // Stays kinematic from here. The world is about to grow around this
             // by three orders of magnitude, and a dynamic body with a collider
             // that large tunnels through the floor on the first physics step.
@@ -325,16 +320,14 @@ namespace EiffelMR
             if (m_LandingHold > 0f)
                 yield return new WaitForSeconds(m_LandingHold);
 
-            if (m_Dive)
+            if (m_World)
             {
-                if (m_DiveDuration > 0f)
-                    m_Dive.m_DiveDuration = m_DiveDuration;
-                m_Dive.EndExclusiveTransition();
-                // Dive() reads the splat's current scale as its starting
-                // magnitude, so the growth from the arc carries straight on
+                m_World.EndFlight();
+                // Both worlds start their growth from the scale the arc left
+                // the miniature at, so the growth in flight carries straight on
                 // into the growth of the world - one continuous magnification
                 // rather than a jump back to table scale.
-                m_Dive.Dive(m_LandingSpawn);
+                m_World.Arrive(pos, m_DiveDuration);
             }
             m_Flight = null;
         }
