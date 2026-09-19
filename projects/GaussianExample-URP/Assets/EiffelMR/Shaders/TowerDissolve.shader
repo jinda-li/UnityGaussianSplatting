@@ -16,7 +16,7 @@ Shader "EiffelMR/TowerDissolve"
         _Dissolve ("Dissolve", Range(0,1)) = 1
         _CellSize ("Noise cell (object units)", Float) = 3.0
         _EdgeWidth ("Edge width", Range(0,0.3)) = 0.06
-        [HDR] _EdgeColor ("Edge colour", Color) = (0.25, 0.55, 1.2, 1)
+        [HDR] _EdgeColor ("Edge colour", Color) = (3.2, 1.7, 0.6, 1)
         _Ambient ("Ambient scale", Range(0,2)) = 1.0
     }
     SubShader

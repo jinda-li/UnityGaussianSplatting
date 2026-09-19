@@ -500,6 +500,13 @@ namespace EiffelMR.EditorTools
                 foreach (var mat in r.sharedMaterials)
                     if (mat && mat.HasProperty("_CellSize"))
                         mat.SetFloat("_CellSize", 3f * unitsPerMetre);
+            // The point shader colours by height and swirls about the tower's
+            // axis, so it needs that axis, and the height, in mesh units.
+            var pm = m["_Points"];
+            pm.SetVector("_UpOS", mf.transform.InverseTransformDirection(worldRoot.up).normalized);
+            pm.SetFloat("_Height", 324f * unitsPerMetre);
+            pm.SetFloat("_EmberRise", 70f * unitsPerMetre);
+            EditorUtility.SetDirty(pm);
             Debug.Log($"[EiffelDesktop] tower mesh {mesh.vertexCount} verts, {unitsPerMetre:F3} " +
                       $"mesh units per metre, {k_PointCount} points");
             // Place the points in the same frame as the mesh they came from.

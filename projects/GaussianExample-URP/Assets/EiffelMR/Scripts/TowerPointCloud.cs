@@ -23,18 +23,18 @@ namespace EiffelMR
     public class TowerPointCloud : MonoBehaviour
     {
         [Tooltip("Point size in screen pixels.")]
-        [Range(0.5f, 12f)] public float m_PointSize = 2.2f;
+        [Range(0.5f, 12f)] public float m_PointSize = 1.15f;
 
         [Tooltip("Fraction of points drawn while fully dispersed.")]
-        [Range(0.02f, 1f)] public float m_DispersedFraction = 0.55f;
+        [Range(0.02f, 1f)] public float m_DispersedFraction = 0.6f;
 
         [Tooltip("Drift amplitude in TOWER-LOCAL metres, so it is the same " +
                  "fraction of the tower at every scale. 3 is ~1% of its height.")]
         [Min(0f)] public float m_Drift = 2.5f;
-        [Min(0f)] public float m_DriftSpeed = 0.9f;
+        [Min(0f)] public float m_DriftSpeed = 0.7f;
 
-        [ColorUsage(false, true)] public Color m_Tint = new Color(0.08f, 0.16f, 0.32f);
-        [Range(0f, 1f)] public float m_Sparkle = 0.3f;
+        [Tooltip("How much the points twinkle, and how often one glints.")]
+        [Range(0f, 1f)] public float m_Sparkle = 0.6f;
 
         [Tooltip("Width of each point's own settle window within the ramp.")]
         [Range(0.05f, 1f)] public float m_Stagger = 0.45f;
@@ -50,7 +50,6 @@ namespace EiffelMR
         static readonly int k_Fraction = Shader.PropertyToID("_Fraction");
         static readonly int k_Drift = Shader.PropertyToID("_Drift");
         static readonly int k_DriftSpeed = Shader.PropertyToID("_DriftSpeed");
-        static readonly int k_Tint = Shader.PropertyToID("_Tint");
         static readonly int k_Sparkle = Shader.PropertyToID("_Sparkle");
 
         public float Solidify
@@ -84,7 +83,6 @@ namespace EiffelMR
             m_Block.SetFloat(k_Fraction, m_DispersedFraction);
             m_Block.SetFloat(k_Drift, m_Drift);
             m_Block.SetFloat(k_DriftSpeed, m_DriftSpeed);
-            m_Block.SetColor(k_Tint, m_Tint);
             m_Block.SetFloat(k_Sparkle, m_Sparkle);
             m_Renderer.SetPropertyBlock(m_Block);
         }
