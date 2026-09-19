@@ -377,6 +377,182 @@ def build_points(out_dir, count=400000, seed=3, views=60, stride=4,
     print("[rig] wrote %d init points" % len(points))
 
 
+def build_points_geo(out_dir, count=400000, seed=3, views=24, pose_stride=1,
+                     poses=None, max_radius=900.0, far_radius=420.0,
+                     far_keep=12):
+    """Seed the trainer from the scene's own geometry instead of ray casts.
+
+    build_points below is exact - it fires a ray per pixel and reads the colour
+    out of the image that ray belongs to - and on this scene it is unusable.
+    Every cast has to traverse a depsgraph holding 1.24 million instanced grass
+    clumps and 872 trees, and measured here that runs about 20 ms. The default
+    settings ask for 8.3 million of them: two days of one core, which is what
+    it actually spent before being killed - twice, because the second attempt
+    only cut the count tenfold and its Python prints were block-buffered, so
+    fifteen hours of it looked identical to a hang.
+
+    This takes the positions straight off the evaluated geometry - the same
+    surfaces the rays would have hit, without the search - and gets each
+    point's colour by PROJECTING it into the training image whose camera sees
+    it most squarely. Projection is arithmetic, so the cost is linear in points
+    instead of pixels times scene complexity.
+
+    What is lost is occlusion: a point hidden behind something else in the
+    chosen view takes the colour of whatever is in front of it. Picking the
+    most face-on camera keeps that rare, and it matters less than it sounds -
+    MCMC fixes colour within the first few hundred steps, but it never recovers
+    a surface that was not in the initial cloud. Position is the part worth
+    being exact about.
+    """
+    import numpy as np
+
+    rng = random.Random(seed)
+    scene = bpy.context.scene
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    # ---- positions -------------------------------------------------------
+    # Walk the evaluated instances rather than the source objects: the grass
+    # and the trees exist only as depsgraph instances, and they are most of the
+    # ground the player will be standing on.
+    skip = ("SkyDome", "Haze")
+    inst_list = []
+    for inst in depsgraph.object_instances:
+        obj = inst.object
+        if obj is None or obj.type != "MESH":
+            continue
+        if obj.name.split(".")[0] in skip:
+            continue
+        if not obj.data or len(obj.data.vertices) == 0:
+            continue
+        inst_list.append((obj, inst.matrix_world.copy()))
+    if not inst_list:
+        print("[rig] no geometry to sample", flush=True)
+        return
+    print("[rig] %d mesh instances in the depsgraph" % len(inst_list),
+          flush=True)
+
+    budget = count * 3
+    per = max(1, budget // len(inst_list))
+    chunks = []
+    for obj, mw in inst_list:
+        mesh = obj.data
+        n = len(mesh.vertices)
+        co = np.empty(n * 3, dtype=np.float32)
+        mesh.vertices.foreach_get("co", co)
+        co = co.reshape(n, 3)
+        if per < n:
+            idx = np.random.default_rng(rng.randrange(1 << 30)).choice(
+                n, size=per, replace=False)
+            co = co[idx]
+        m = np.array(mw, dtype=np.float32)
+        chunks.append(co @ m[:3, :3].T + m[:3, 3])
+    pts = np.concatenate(chunks, axis=0)
+    print("[rig] sampled %d surface points" % len(pts), flush=True)
+
+    # Same two radius rules as the ray-cast path: drop anything outside the
+    # trained volume, and thin the far ring so the budget is not spent on a
+    # backdrop that is the same in every view.
+    r2 = (pts * pts).sum(axis=1)
+    inside = r2 <= max_radius * max_radius
+    far = inside & (r2 > far_radius * far_radius)
+    thin = np.zeros(len(pts), dtype=bool)
+    thin[np.flatnonzero(far)[::far_keep]] = True
+    pts = pts[(inside & ~far) | thin]
+    print("[rig] %d points inside %.0f m" % (len(pts), max_radius), flush=True)
+
+    if len(pts) > count:
+        sel = np.random.default_rng(seed).choice(len(pts), size=count,
+                                                 replace=False)
+        pts = pts[sel]
+
+    # ---- colours ---------------------------------------------------------
+    poses = list(poses if poses is not None else camera_poses())
+    if pose_stride > 1:
+        poses = poses[::pose_stride]
+    step = max(1, len(poses) // max(views, 1))
+    chosen = [(i, poses[i]) for i in range(0, len(poses), step)][:views]
+
+    images_dir = os.path.join(out_dir, "images")
+    cam = make_camera(scene, chosen[0][1][2])
+    cams = []
+    for idx, (pos, look, lens) in chosen:
+        path = os.path.join(images_dir, "%05d.png" % (idx + 1))
+        if not os.path.exists(path):
+            continue
+        cam.data.lens = lens
+        cam.location = pos
+        aim(cam, look)
+        bpy.context.view_layer.update()
+        w, h, fx, fy, cx, cy = intrinsics(scene, cam)
+        m = cam_matrix(cam)
+
+        img = bpy.data.images.load(path)
+        iw, ih = img.size
+        ch = img.channels
+        buf = np.empty(iw * ih * ch, dtype=np.float32)
+        # foreach_get, not list(img.pixels): list() on a 5.9 M float buffer
+        # takes tens of seconds per image and is most of what made the
+        # ray-cast path look like it was doing something.
+        img.pixels.foreach_get(buf)
+        bpy.data.images.remove(img)
+        buf = buf.reshape(ih, iw, ch)[::-1]   # Blender hands back bottom row first
+        cams.append({
+            "origin": np.array(m.to_translation(), dtype=np.float32),
+            "rot": np.array(m.to_3x3(), dtype=np.float32),   # camera -> world
+            "fx": fx, "fy": fy, "cx": cx, "cy": cy, "w": w, "h": h,
+            "img": buf, "sx": iw / float(w), "sy": ih / float(h),
+        })
+    if not cams:
+        print("[rig] no training images to colour from - render them first",
+              flush=True)
+        return
+    print("[rig] colouring from %d views" % len(cams), flush=True)
+
+    colours = np.full((len(pts), 3), -1.0, dtype=np.float32)
+    best = np.full(len(pts), -1.0, dtype=np.float32)
+    # One vectorised pass per camera over the whole cloud, rather than a Python
+    # loop over a few hundred thousand points.
+    for c in cams:
+        local = (pts - c["origin"]) @ c["rot"]   # world -> camera, rot is orthonormal
+        z = -local[:, 2]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            u = c["fx"] * local[:, 0] / z + c["cx"]
+            v = c["cy"] - c["fy"] * local[:, 1] / z
+        seen = (z > 0.1) & (u >= 0) & (u < c["w"]) & (v >= 0) & (v < c["h"])
+        # "Most squarely seen" - nearest the principal point, which for a fixed
+        # image is the same as the smallest angle off the camera axis.
+        score = np.where(seen, 1.0 / (1.0 + np.hypot(u - c["cx"], v - c["cy"])),
+                         -1.0)
+        win = seen & (score > best)
+        if not win.any():
+            continue
+        best[win] = score[win]
+        ix = np.clip((u[win] * c["sx"]).astype(np.int32), 0,
+                     c["img"].shape[1] - 1)
+        iy = np.clip((v[win] * c["sy"]).astype(np.int32), 0,
+                     c["img"].shape[0] - 1)
+        colours[win] = c["img"][iy, ix, :3]
+
+    keep = colours[:, 0] >= 0.0
+    pts, colours = pts[keep], colours[keep]
+    print("[rig] %d points landed in at least one view" % len(pts), flush=True)
+
+    rgb = np.clip(colours, 0.0, 1.0)
+    rgb = np.where(rgb <= 0.0031308, rgb * 12.92,
+                   1.055 * np.power(rgb, 1.0 / 2.4) - 0.055)
+    rgb = np.clip(np.rint(rgb * 255.0), 0, 255).astype(np.int32)
+
+    sparse_dir = os.path.join(out_dir, "sparse", "0")
+    os.makedirs(sparse_dir, exist_ok=True)
+    with open(os.path.join(sparse_dir, "points3D.txt"), "w") as fh:
+        fh.write("# 3D point list\n")
+        for i in range(len(pts)):
+            fh.write("%d %.6f %.6f %.6f %d %d %d 0.0\n"
+                     % (i + 1, pts[i, 0], pts[i, 1], pts[i, 2],
+                        rgb[i, 0], rgb[i, 1], rgb[i, 2]))
+    print("[rig] wrote %d init points" % len(pts), flush=True)
+
+
 def _cast_view(scene, depsgraph, cam, image_path, stride, max_radius=4000.0,
                far_radius=800.0, far_keep=20):
     img = bpy.data.images.load(image_path)
@@ -428,6 +604,7 @@ def _cli():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     cfg = {"out": "", "res": 1600, "samples": 128, "limit": 0,
            "points": 400000, "points_only": 0, "images_only": 0,
+           "points_mode": "geo",
            "point_views": 60, "pose_stride": 1, "mode": "scene"}
     for i, a in enumerate(argv):
         key = a.lstrip("-").replace("-", "_")
@@ -452,5 +629,9 @@ if __name__ == "__main__":
         render_dataset(out, res_x, res_y, cfg["samples"], cfg["limit"],
                        cfg["pose_stride"], poses)
     if not cfg["images_only"]:
-        build_points(out, cfg["points"], views=cfg["point_views"],
-                     pose_stride=cfg["pose_stride"], poses=poses)
+        if cfg["points_mode"] == "cast":
+            build_points(out, cfg["points"], views=cfg["point_views"],
+                         pose_stride=cfg["pose_stride"], poses=poses)
+        else:
+            build_points_geo(out, cfg["points"], views=cfg["point_views"],
+                             pose_stride=cfg["pose_stride"], poses=poses)
