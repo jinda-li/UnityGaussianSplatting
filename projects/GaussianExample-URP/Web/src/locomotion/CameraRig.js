@@ -91,8 +91,14 @@ export class CameraRig {
     this.isLocomoting = false;
     this.onTeleport = null; // (kind, distance) => void, for the blink overlay
 
+    // Not in the C#: no two cuts closer than this (unless the avatar is
+    // already behind the lens), so a timer cut and a jump-back never land on
+    // neighbouring frames and read as a slide.
+    this.minCutSpacing = 0.2;
+
     this._viewYaw = 0;
     this._catchUpTimer = 0;
+    this._sinceCut = 1;
   }
 
   // ---- hmd helpers --------------------------------------------------------
@@ -173,17 +179,27 @@ export class CameraRig {
     }
 
     this._catchUpTimer -= dt;
+    this._sinceCut += dt;
     const hmd = this.hmdPosition(new THREE.Vector3());
     const head = this.avatarHead(new THREE.Vector3());
     const toHead = head.clone().sub(hmd);
     let dist = toHead.length();
     const fwd = _v1.set(0, 0, -1).applyQuaternion(this.camera.getWorldQuaternion(_q));
-    dist *= Math.sign(fwd.dot(toHead)) || 1;
+    const behind = fwd.dot(toHead) < 0;
+    if (behind) dist = -dist;
     // The avatar walked back at (or past) the camera: back off right away
     // instead of waiting for the timer, or it walks through the lens.
-    const jumpBackwards = dist < this.catchUpToOrbitDistance;
+    //
+    // Not in the C#: the threshold shrinks with the orbit distance a wall
+    // allows. Against a wall the orbit point is clipped to well under 1 m, and
+    // with Unity's fixed threshold every frame is a "jump back" - the camera
+    // then glides continuously, which is exactly the motion this rig avoids.
+    const desired = this._desiredOrbitHmdPosition();
+    const reachable = Math.hypot(desired.x - head.x, desired.z - head.z);
+    const jumpBackwards = dist < Math.min(this.catchUpToOrbitDistance, reachable * 0.8);
+    if (!behind && this._sinceCut < this.minCutSpacing) return;
     if (jumpBackwards || this._catchUpTimer <= 0) {
-      this._catchUpToOrbitRadius(jumpBackwards);
+      if (this._catchUpToOrbitRadius(jumpBackwards, behind)) this._sinceCut = 0;
       this._catchUpTimer = this.catchUpInterval;
     }
   }
@@ -211,17 +227,20 @@ export class CameraRig {
     this._applyDesiredHmdPose(desired, this._desiredYawLookingAtAvatar(desired), 'snap');
   }
 
-  _catchUpToOrbitRadius(jumpBackwards) {
+  _catchUpToOrbitRadius(jumpBackwards, behind = false) {
     const desired = this._desiredOrbitHmdPosition();
     const hmd = this.hmdPosition(new THREE.Vector3());
     const delta = desired.sub(hmd);
     const len = delta.length();
-    if (len < 1e-4) return;
+    if (len < 1e-4) return false;
     // Unity moves a flat backwardSnapBackMeters here; capped at the remaining
-    // distance so a short correction does not overshoot and ping-pong.
-    if (jumpBackwards) delta.multiplyScalar(Math.min(len, this.backwardSnapBackMeters) / len);
+    // distance so a short correction does not overshoot and ping-pong. With
+    // the avatar already behind the lens, one full cut beats several 1 m cuts
+    // on consecutive frames.
+    if (jumpBackwards && !behind) delta.multiplyScalar(Math.min(len, this.backwardSnapBackMeters) / len);
     this._translateRig(delta.x, delta.y, delta.z);
     this.onTeleport?.('catchup', delta.length());
+    return true;
   }
 
   _smoothFollow(dt) {

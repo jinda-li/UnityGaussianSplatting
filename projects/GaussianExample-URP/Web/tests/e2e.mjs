@@ -76,8 +76,22 @@ let last = s.at(-1);
 check('idle is first person', last.state === 'idle' && dist(last.cam, last.head) < 1e-3 && !last.avatarVisible,
   `camera-head ${dist(last.cam, last.head).toFixed(4)} m`);
 
-// 2. Walk forward for 3 s.
-s = await run(180, { move: { x: 0, y: 1 } });
+// 2. Walk for 3 s in the most open direction from the spawn (a stick push
+// relative to the current view, as a player would).
+const openStick = await page.evaluate(() => {
+  const u = window.ukemi, T = u.THREE, w = u.world, b = u.player.body;
+  let best = null;
+  for (let k = 0; k < 24; ++k) {
+    const a = (k / 24) * Math.PI * 2, d = { x: Math.sin(a), z: Math.cos(a) };
+    const reach = w.raycast(b.x, b.y + 0.6, b.z, d.x, 0, d.z, 8);
+    if (!best || reach > best.reach) best = { reach, d };
+  }
+  const q = new T.Quaternion(); u.camera.getWorldQuaternion(q);
+  const f = new T.Vector3(0, 0, -1).applyQuaternion(q).setY(0).normalize(), r = new T.Vector3(-f.z, 0, f.x);
+  return { x: best.d.x * r.x + best.d.z * r.z, y: best.d.x * f.x + best.d.z * f.z, reach: best.reach };
+});
+console.log(`      walking the most open direction (${openStick.reach.toFixed(1)} m clear)`);
+s = await run(180, { move: { x: openStick.x, y: openStick.y } });
 const walking = s.filter((f) => f.state === 'locomotion');
 check('stick enters third person', walking.length > 170 && walking.every((f) => f.avatarVisible));
 let yawDrift = 0;
@@ -86,11 +100,12 @@ for (let i = 1; i < s.length; ++i) {
   if (dist(s[i].cam, s[i - 1].cam) > 1e-6) cutFrames.push(i);
   yawDrift = Math.max(yawDrift, angDiff(s[i].yaw, s[0].yaw));
 }
-// Cuts after the first (the start nudge fires on frame 0) must be a full
-// catch-up interval apart: 0.25 s = 15 frames at 60 Hz.
+// Cuts must be discrete and spaced: at least the rig's minimum spacing of
+// 0.2 s (12 frames at 60 Hz); timer cuts come every 0.25 s.
 const gaps = cutFrames.slice(1).map((f, i) => f - cutFrames[i]);
+if (process.env.VERBOSE) console.log('      cuts at frames', cutFrames.map((f) => `${f}:${dist(s[f].cam, s[f - 1].cam).toFixed(2)}m/head ${Math.hypot(s[f].cam[0] - s[f].head[0], s[f].cam[2] - s[f].head[2]).toFixed(2)}`).join('  '));
 const minGap = gaps.length ? Math.min(...gaps) : Infinity;
-check('camera moves only in discrete cuts, a catch-up interval apart', cutFrames.length >= 3 && minGap >= 15,
+check('camera moves only in discrete cuts, at least 0.2 s apart', cutFrames.length >= 3 && minGap >= 12,
   `${cutFrames.length} cuts in 3 s, min gap ${minGap} frames`);
 check('camera never rotates on its own while walking', yawDrift < 1e-6, `max yaw drift ${yawDrift.toExponential(2)} rad`);
 const moved = Math.hypot(s.at(-1).body[0] - s[0].body[0], s.at(-1).body[2] - s[0].body[2]);
@@ -101,7 +116,7 @@ check('camera trails the avatar at the orbit distance', camToHead > 0.3 && camTo
   `${camToHead.toFixed(2)} m behind`);
 
 // 3. Keep pushing into whatever is ahead: the body must stop and stay put.
-s = await run(600, { move: { x: 0, y: 1 } });
+s = await run(600, { move: { x: openStick.x, y: openStick.y } });
 const tail = s.slice(-60);
 const creep = dist(tail[0].body, tail.at(-1).body);
 check('walking into furniture/walls stops the body', creep < 0.01 && s.some((f) => f.hit),

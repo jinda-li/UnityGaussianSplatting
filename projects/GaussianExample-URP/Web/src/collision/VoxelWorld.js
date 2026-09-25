@@ -17,6 +17,14 @@
 //     the move. A chair seat is above the step height, so it stops you.
 // Moves are sub-stepped below the voxel size and slide along walls one axis at
 // a time, so a diagonal push into a wall keeps the free component.
+//
+// A second, coarse grid (~0.3 m) catches what is too sparse for the fine one.
+// A generated world is dense where its camera looked and thin behind doorways
+// (the living room's kitchen has ~20 splats/m² against ~6000 on the lounge
+// floor). Without it those areas have no floor and see-through walls. The
+// coarse grid only ever extends a floor at the height you are already
+// standing on, and only blocks where the fine grid sees nothing at all, so it
+// neither lets you climb nor narrows gaps between real furniture.
 
 const DEFAULTS = {
   // Target voxel edge in metres; grown when the capture is too large for the
@@ -37,14 +45,24 @@ const DEFAULTS = {
 const PLAYER_DEFAULTS = {
   radius: 0.22,
   height: 1.7,
-  stepHeight: 0.35,
+  // Largest single rise (a kerb, a stair). Chair and sofa seats (~0.4 m) are
+  // above it.
+  stepHeight: 0.25,
   maxDrop: 0.6,
   // Solid voxels inside the body volume needed to call it blocked. 1 would
   // turn every stray floater into an invisible wall.
   blockCount: 2,
-  // Horizontal distance over which the climb is limited to stepHeight.
-  trailLength: 0.4,
+  // Most climb allowed within trailLength of travel: a flight of stairs
+  // (~0.17 m per 0.28 m) fits, a seat reached via its front rail does not.
+  climbLimit: 0.36,
+  trailLength: 0.45,
 };
+
+// Coarse grid: cell size and the opacity that counts as evidence of a
+// surface there.
+const COARSE_CELL = 0.3;
+const COARSE_FLOOR_WEIGHT = 0.6;
+const COARSE_WALL_WEIGHT = 1.5;
 
 const QSCALE = 32; // opacity quantisation: weight * QSCALE stored in a Uint8
 
@@ -59,6 +77,28 @@ export class VoxelWorld {
   setSolidWeight(w) {
     this.options.solidWeight = w;
     this._solidQ = Math.max(1, Math.round(w * QSCALE));
+    this._markCoarseFine();
+  }
+
+  // Which coarse cells contain any fine solid voxel: there the fine grid is
+  // the authority and the coarse grid stays out of the way.
+  _markCoarseFine() {
+    if (!this.coarse) return;
+    const c = this.coarse;
+    c.hasFine.fill(0);
+    const { nx, ny, nz, cells } = this;
+    const q = this._solidQ, v = this.voxel;
+    for (let iy = 0, idx = 0; iy < ny; ++iy) {
+      const cy = Math.floor((this.oy + (iy + 0.5) * v - c.oy) / c.cell);
+      for (let iz = 0; iz < nz; ++iz) {
+        const cz = Math.floor((this.oz + (iz + 0.5) * v - c.oz) / c.cell);
+        for (let ix = 0; ix < nx; ++ix, ++idx) {
+          if (cells[idx] < q) continue;
+          const cx = Math.floor((this.ox + (ix + 0.5) * v - c.ox) / c.cell);
+          c.hasFine[(cy * c.nz + cz) * c.nx + cx] = 1;
+        }
+      }
+    }
   }
 
   // splats: { count, forEach(cb(x, y, z, sx, sy, sz, qx, qy, qz, qw, opacity)) }
@@ -146,6 +186,17 @@ export class VoxelWorld {
       }
     }
 
+    // Coarse evidence grid from splat centres.
+    const cc = Math.max(COARSE_CELL, voxel * 2);
+    const cnx = Math.ceil((max[0] - min[0]) / cc), cny = Math.ceil((max[1] - min[1]) / cc), cnz = Math.ceil((max[2] - min[2]) / cc);
+    const cw = new Float32Array(cnx * cny * cnz);
+    for (let i = 0; i < kept; ++i) {
+      const ix = Math.floor((pos[i * 3] - min[0]) / cc), iy = Math.floor((pos[i * 3 + 1] - min[1]) / cc), iz = Math.floor((pos[i * 3 + 2] - min[2]) / cc);
+      if (ix < 0 || iy < 0 || iz < 0 || ix >= cnx || iy >= cny || iz >= cnz) continue;
+      cw[(iy * cnz + iz) * cnx + ix] += wts[i];
+    }
+    grid.coarse = { cell: cc, nx: cnx, ny: cny, nz: cnz, ox: min[0], oy: min[1], oz: min[2], w: cw, hasFine: new Uint8Array(cw.length) };
+
     const world = new VoxelWorld(grid, options);
     world.stats = {
       splats: n,
@@ -171,6 +222,35 @@ export class VoxelWorld {
 
   solidAt(x, y, z) {
     return this.solidCell(this.ix(x), this.iy(y), this.iz(z));
+  }
+
+  _coarseAt(x, y, z) {
+    const c = this.coarse;
+    const ix = Math.floor((x - c.ox) / c.cell), iy = Math.floor((y - c.oy) / c.cell), iz = Math.floor((z - c.oz) / c.cell);
+    if (ix < 0 || iy < 0 || iz < 0 || ix >= c.nx || iy >= c.ny || iz >= c.nz) return -1;
+    return (iy * c.nz + iz) * c.nx + ix;
+  }
+
+  // Sparse floor at exactly this height? (Only ever continues a level floor.)
+  _coarseFloor(x, z, feetY) {
+    const c = this.coarse;
+    for (const y of [feetY - 0.06, feetY - c.cell * 0.6]) {
+      const i = this._coarseAt(x, y, z);
+      if (i >= 0 && c.w[i] >= COARSE_FLOOR_WEIGHT) return true;
+    }
+    return false;
+  }
+
+  // A sparse wall where the fine grid sees nothing: coarse cells with
+  // evidence but no fine solid voxel, between knee and head height.
+  _coarseWall(x, z, groundY) {
+    const c = this.coarse;
+    let hits = 0;
+    for (let y = groundY + 0.5; y <= groundY + this.player.height; y += c.cell) {
+      const i = this._coarseAt(x, y, z);
+      if (i >= 0 && !c.hasFine[i] && c.w[i] >= COARSE_WALL_WEIGHT && ++hits >= 2) return true;
+    }
+    return false;
   }
 
   ix(x) { return Math.floor((x - this.ox) / this.voxel); }
@@ -214,7 +294,7 @@ export class VoxelWorld {
       if (top > best) { second = best; best = top; } else if (top > second) second = top;
     }
     // Two feet on the ground is enough; one lone column is noise or a ledge.
-    if (n < 2) return NaN;
+    if (n < 2) return this._coarseFloor(x, z, feetY) ? feetY : NaN;
     // The second-highest ignores a single spike (a rug fold, a stray splat).
     return n >= 3 ? second : best;
   }
@@ -244,7 +324,8 @@ export class VoxelWorld {
   }
 
   blocked(x, z, groundY) {
-    return this.bodyHits(x, z, groundY, this.player.blockCount) >= this.player.blockCount;
+    return this.bodyHits(x, z, groundY, this.player.blockCount) >= this.player.blockCount ||
+      this._coarseWall(x, z, groundY);
   }
 
   // Where a player at feet (x, feetY, z) may stand after moving to (x2, z2).
@@ -299,7 +380,7 @@ export class VoxelWorld {
         if (!Number.isNaN(gs) && this.bodyHits(nx, nz, gs) <= stuckHits) return gs;
       }
       if (Number.isNaN(g)) return NaN;
-      if (g > pos.y + 1e-4 && g - this._trailMin(trail, pos.y) > this.player.stepHeight) return NaN;
+      if (g > pos.y + 1e-4 && g - this._trailMin(trail, pos.y) > this.player.climbLimit) return NaN;
       return g;
     };
     for (let s = 0; s < steps; ++s) {

@@ -14,7 +14,7 @@ await page.evaluate(() => { const u = window.ukemi; u.setRender(false); u.step(2
 for (let i = 0; i < 6; ++i) { await page.evaluate(() => window.ukemi.renderOnce()); await page.waitForTimeout(400); }
 const tag = `${w}x${h}`;
 await page.screenshot({ path: `${outDir}/landing-${tag}-hero.png`, timeout: 120000 });
-for (const id of ['scenes', 'comfort', 'how']) {
+for (const id of ['demo', 'value', 'industries', 'how', 'contact']) {
   await page.evaluate((id) => { const el = document.getElementById(id); document.getElementById('intro').scrollTo({ top: el.offsetTop, behavior: 'instant' }); }, id);
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${outDir}/landing-${tag}-${id}.png`, timeout: 120000 });

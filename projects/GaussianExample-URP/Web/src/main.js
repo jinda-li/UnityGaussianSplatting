@@ -27,6 +27,7 @@ import { XrControllers } from './xr/XrControllers.js';
 import { VrMenu } from './xr/VrMenu.js';
 import { SAMPLES } from './samples.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { SITE } from './site.js';
 
 const params = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -240,8 +241,8 @@ async function loadSplat(entry) {
       pendingExplore = false;
       setMode(world.walkable ? 'walk' : 'object');
     }
-    if (!world.walkable) toast('Not enough floor to walk on, so this opens in object view (drag to orbit · scroll to zoom)');
-    else if (mode !== 'intro') toast(`${title} · ${world.stats.splats.toLocaleString()} splats`);
+    if (!world.walkable) toast('This capture has no floor to walk on, so it opens as a 3D view — drag to look around, scroll to zoom');
+    else if (mode !== 'intro') toast(`Now walking: ${title}`);
   } catch (err) {
     console.error(err);
     mesh?.dispose?.();
@@ -351,8 +352,6 @@ function updateSceneInfo(buildMs) {
   const st = world.stats;
   $('scene-info').textContent =
     `${current?.name}: ${st.splats.toLocaleString()} splats · ${st.voxel.toFixed(2)} m voxels · ${st.dims.join('×')} grid · ${buildMs} ms`;
-  $('st-splats').textContent = st.splats >= 1e6 ? `${(st.splats / 1e6).toFixed(1)}M` : `${Math.round(st.splats / 1000)}K`;
-  $('st-collide').textContent = `${(buildMs / 1000).toFixed(buildMs < 1000 ? 2 : 1)} s`;
 }
 
 // ---------------------------------------------------------------- object mode
@@ -697,15 +696,15 @@ function updateHelpCard(dt) {
 }
 
 function updateHud() {
-  if (fps) $('st-fps').textContent = fps.toFixed(0);
   const s = $('hud-state');
   s.classList.toggle('third', mode === 'walk' && player.isLocomoting);
   s.classList.toggle('object', mode === 'object');
-  s.textContent = mode === 'object' ? 'Object view' : player.isLocomoting ? 'Third person · walking' : 'First person';
+  s.textContent = mode === 'object' ? '3D view' : player.isLocomoting ? 'Walking' : 'Looking around';
   const b = player.body;
+  const debugInfo = params.has('debug') ? ` · ${fps.toFixed(0)} fps · (${b.x.toFixed(1)}, ${b.y.toFixed(1)}, ${b.z.toFixed(1)})` : '';
   $('hud-info').textContent = !world ? '' : mode === 'object'
-    ? `${fps.toFixed(0)} fps · drag to orbit · scroll to zoom`
-    : `${fps.toFixed(0)} fps · (${b.x.toFixed(1)}, ${b.y.toFixed(1)}, ${b.z.toFixed(1)})${player.lastHit && player.isLocomoting ? ' · blocked' : ''}`;
+    ? `Drag to look around · scroll to zoom${debugInfo}`
+    : `${current?.name ?? ''} · WASD to walk · drag to look${debugInfo}`;
 }
 
 // One progress UI for both modes: inline under the hero, a card otherwise.
@@ -776,6 +775,7 @@ function refreshSceneLists() {
       <span class="go">${ICON_ARROW}</span>
       <span class="meta">
         <span class="title">${s.name}</span>
+        <span class="kind">${s.kind}</span>
         <span class="sub">${s.sub}</span>
         <span class="tags">${s.tags.map((t) => `<span class="tag">${t}</span>`).join('')}</span>
       </span>
@@ -783,9 +783,9 @@ function refreshSceneLists() {
     <button class="card import" type="button" data-id="import">
       <span class="thumb">${ICON_UPLOAD}</span>
       <span class="meta">
-        <span class="title">Import your model</span>
-        <span class="sub">.spz · .ply · .splat · .ksplat · .sog — or drop it anywhere on the page</span>
-        <span class="tags"><span class="tag">Processed in your browser, never uploaded</span></span>
+        <span class="title">Walk your own capture</span>
+        <span class="sub">Have a scan already? Open a .spz or .ply file, or drop it anywhere on this page.</span>
+        <span class="tags"><span class="tag">Stays on your computer — never uploaded</span></span>
       </span>
     </button>`;
 }
@@ -820,7 +820,14 @@ function setupUi() {
   $('vr-hero').addEventListener('click', vrHeroClicked);
   $('import-hero').addEventListener('click', () => $('file').click());
   $('explore-2').addEventListener('click', explore);
-  $('import-2').addEventListener('click', () => $('file').click());
+  // Contact buttons appear once src/site.js has somewhere to send people.
+  const contact = SITE.contactUrl || (SITE.contactEmail && `mailto:${SITE.contactEmail}?subject=${encodeURIComponent('UkemiXR capture')}`);
+  if (contact) $('closing-text').textContent = 'Walk the demo now, or tell us about the place you want people to visit.';
+  for (const el of document.querySelectorAll('.contact-link')) {
+    if (!contact) continue;
+    el.href = el.id === 'contact-hero' ? '#contact' : contact;
+    el.hidden = false;
+  }
   const bar = document.querySelector('.bar');
   $('intro').addEventListener('scroll', () => bar.classList.toggle('scrolled', mode === 'intro' && $('intro').scrollTop > 40), { passive: true });
   $('home').addEventListener('click', (e) => { e.preventDefault(); goHome(); });
