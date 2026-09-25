@@ -402,6 +402,94 @@ export class VoxelWorld {
     return { x: best[0], y: best[1], z: best[2], ok: true, floorY };
   }
 
+  // findSpawn near the capture origin first (where a generator's camera
+  // stood), then around the middle of the scene with a radius that covers it.
+  findSpawnAnywhere() {
+    const near = this.findSpawn(0, 0, 8);
+    if (near.ok) return near;
+    const b = this.stats.bounds;
+    const cx = (b.min[0] + b.max[0]) / 2, cz = (b.min[2] + b.max[2]) / 2;
+    const r = Math.min(60, Math.max(b.max[0] - b.min[0], b.max[2] - b.min[2]) / 2);
+    return this.findSpawn(cx, cz, r);
+  }
+
+  // The most open direction from a standing spot: yaw (three.js view
+  // convention, forward = (-sin, 0, -cos)) whose ray at chest height runs
+  // furthest. `preferYaw` wins unless something is clearly more open, so a
+  // capture's intended view (Marble looks down -Z) is kept when it is usable.
+  openYaw(x, feetY, z, preferYaw = 0) {
+    const y = feetY + 1.2;
+    const reach = (yaw) => Math.min(12, this.raycast(x, y, z, -Math.sin(yaw), 0, -Math.cos(yaw), 12));
+    let best = preferYaw, bestD = reach(preferYaw);
+    const preferD = bestD;
+    for (let k = 0; k < 16; ++k) {
+      const yaw = (k / 16) * Math.PI * 2;
+      const d = reach(yaw);
+      if (d > bestD) { bestD = d; best = yaw; }
+    }
+    return preferD >= Math.min(3, bestD * 0.6) ? preferYaw : best;
+  }
+
+  // Floor area (m²) a player can walk to from the spawn, counted up to
+  // `cap`. A few square metres means "a statue / a sofa on its own", which is
+  // better looked at than walked on.
+  reachableArea(spawn, cap = 12) {
+    const v = Math.max(this.voxel, 0.15);
+    const maxCells = Math.ceil(cap / (v * v));
+    const seen = new Set();
+    const key = (i, k) => i * 100003 + k;
+    const queue = [[0, 0, spawn.y]];
+    seen.add(key(0, 0));
+    let n = 0;
+    while (queue.length && n < maxCells) {
+      const [i, k, y] = queue.shift();
+      ++n;
+      for (const [di, dk] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = i + di, nk = k + dk;
+        if (seen.has(key(ni, nk))) continue;
+        seen.add(key(ni, nk));
+        const g = this._standAt(spawn.x + ni * v, spawn.z + nk * v, y);
+        if (Number.isNaN(g) || g - y > this.player.stepHeight) continue;
+        queue.push([ni, nk, g]);
+      }
+    }
+    return n * v * v;
+  }
+
+  // How much stands on the floor around the spawn: solid voxels between knee
+  // and head height. Furniture, walls, plants and people-height detail sit on
+  // a real floor; under an upside-down ceiling that band is mostly empty.
+  // Used to pick which way up an unknown capture goes.
+  uprightScore(spawn, radius = 6) {
+    const v = this.voxel;
+    const r = Math.ceil(radius / v);
+    const cix = this.ix(spawn.x), ciz = this.iz(spawn.z);
+    const y0 = this.iy(spawn.y + 0.3), y1 = this.iy(spawn.y + 1.5);
+    let n = 0;
+    for (let iz = ciz - r; iz <= ciz + r; ++iz) {
+      for (let ix = cix - r; ix <= cix + r; ++ix) {
+        if ((ix - cix) ** 2 + (iz - ciz) ** 2 > r * r) continue;
+        for (let iy = y0; iy <= y1; ++iy) if (this.solidCell(ix, iy, iz)) n++;
+      }
+    }
+    return n;
+  }
+
+  // Is a head at (x, y, z) inside solid geometry? Used to fade the view out
+  // when someone leans (room-scale) through a wall the body cannot pass.
+  headInside(x, y, z) {
+    const r = 0.1;
+    let n = 0;
+    if (this.solidAt(x, y, z)) n++;
+    if (this.solidAt(x + r, y, z)) n++;
+    if (this.solidAt(x - r, y, z)) n++;
+    if (this.solidAt(x, y + r, z)) n++;
+    if (this.solidAt(x, y - r, z)) n++;
+    if (this.solidAt(x, y, z + r)) n++;
+    if (this.solidAt(x, y, z - r)) n++;
+    return n >= 4;
+  }
+
   _lowestStandable(x, z) {
     const ix = this.ix(x), iz = this.iz(z);
     for (let iy = 0; iy < this.ny; ++iy) {

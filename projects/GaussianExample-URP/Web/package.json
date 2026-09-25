@@ -11,7 +11,8 @@
     "test:e2e": "node tests/e2e.mjs living-room && node tests/e2e.mjs bamboo-courtyard",
     "test:xr": "node tests/xr.mjs",
     "test:upload": "node tests/upload.mjs SplatSamples/project-cozy-living-room-interior.ply SplatSamples/project-cozy-living-room-interior.spz",
-    "test": "npm run test:collision && npm run test:e2e && npm run test:xr && npm run test:upload"
+    "test": "npm run test:collision && npm run test:e2e && npm run test:xr && npm run test:upload && npm run test:robustness",
+    "test:robustness": "node tests/makeFixtures.mjs scratch/fixtures && node tests/robustness.mjs scratch/fixtures"
   },
   "dependencies": {
     "@sparkjsdev/spark": "^2.2.0",

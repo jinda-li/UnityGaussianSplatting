@@ -30,7 +30,7 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
-await page.goto(`${BASE}/?scene=${scene}&norender&test`);
+await page.goto(`${BASE}/?scene=${scene}&walk&norender&test`);
 await page.waitForFunction(() => window.ukemi?.world && window.ukemi.player.world, null, { timeout: 180000 });
 
 const info = await page.evaluate(() => {

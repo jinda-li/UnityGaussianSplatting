@@ -8,14 +8,14 @@ fs.mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto(`${BASE}/?scene=${scene}&test${debug ? '&debug' : ''}`);
+await page.goto(`${BASE}/?scene=${scene}&walk&test${debug ? '&debug' : ''}${process.env.AVATAR ? '&avatar=' + process.env.AVATAR : ''}`);
 await page.waitForFunction(() => window.ukemi?.world && window.ukemi.player.world, null, { timeout: 300000 });
 await page.evaluate(() => { const u = window.ukemi; u.pause(); u.setRender(false); u.settings.follow = 'discrete'; u.applySettings(); });
 const shoot = async (name) => {
   // Let Spark finish sorting for this viewpoint, then grab the canvas.
   for (let i = 0; i < 6; ++i) { await page.evaluate(() => window.ukemi.renderOnce()); await page.waitForTimeout(400); }
-  await page.screenshot({ path: `${outDir}/${scene}-${name}.png`, timeout: 120000 });
-  console.log('wrote', `${outDir}/${scene}-${name}.png`);
+  await page.screenshot({ path: `${outDir}/${scene}-${process.env.AVATAR || 'xbot'}-${name}.png`, timeout: 120000 });
+  console.log('wrote', `${outDir}/${scene}-${process.env.AVATAR || 'xbot'}-${name}.png`);
 };
 const run = (n, raw) => page.evaluate(({ n, raw }) => {
   const u = window.ukemi;

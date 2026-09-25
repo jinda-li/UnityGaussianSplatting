@@ -1,106 +1,234 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>UkemiXR Splat Walk</title>
-  <meta name="description" content="UkemiXR — 在浏览器里打开 3D 高斯场景，走进去，戴上头显直接进入 VR。" />
+  <title>UkemiXR — Step inside any Gaussian world</title>
+  <meta name="description" content="UkemiXR turns 3D Gaussian splats into places you can walk, collide with and step into with a headset. Open .spz / .ply in the browser, comfort-first locomotion, one-tap WebXR." />
+  <meta name="theme-color" content="#0b0e13" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="UkemiXR — Step inside any Gaussian world" />
+  <meta property="og:description" content="Walk, collide and step into any Gaussian splat — in the browser, in VR, without motion sickness." />
+  <meta property="og:image" content="/og.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
-<body>
-  <div id="app">
-    <canvas id="view" tabindex="0"></canvas>
-
-    <header class="bar">
-      <a class="brand" href="/" aria-label="UkemiXR">
-        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".35" />
-          <path d="M9 9v8a7 7 0 0 0 14 0V9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
-          <circle cx="16" cy="25.5" r="1.8" fill="var(--accent)" />
-        </svg>
-        <span class="brand-name">UkemiXR</span>
-        <span class="brand-sub">Splat Walk</span>
-      </a>
-      <div class="bar-actions">
-        <select id="sample" class="btn select" aria-label="示例场景"></select>
-        <button id="open" class="btn" type="button">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h3.3l1.6 1.8h6.1A1.5 1.5 0 0 1 17 7.3v7.2a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-          <span>打开 .spz / .ply</span>
-        </button>
-        <button id="vr" class="btn primary" type="button" disabled>
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 7.5A2 2 0 0 1 4.5 5.5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3l-1.6-2.2a1.1 1.1 0 0 0-1.8 0L7.5 14.5h-3a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
-          <span id="vr-label">检测 VR…</span>
-        </button>
-        <button id="settings-toggle" class="btn icon" type="button" aria-label="设置" aria-expanded="false">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="6" r="2" fill="var(--panel)" stroke="currentColor" stroke-width="1.6"/><circle cx="12.5" cy="14" r="2" fill="var(--panel)" stroke="currentColor" stroke-width="1.6"/></svg>
-        </button>
-      </div>
-      <input id="file" type="file" accept=".spz,.ply,.splat,.ksplat,.sog" hidden />
-    </header>
-
-    <aside id="settings" class="panel settings" hidden>
-      <h2>镜头调度 <small>Locomotion</small></h2>
-      <label class="row">
-        <span>跟随方式</span>
-        <select id="s-follow">
-          <option value="auto">自动（VR 瞬移 / 桌面平滑）</option>
-          <option value="discrete">瞬移追赶（Unity 同款）</option>
-          <option value="smooth">平滑跟随</option>
-        </select>
-      </label>
-      <label class="row"><span>追赶间隔 <output id="o-catchup"></output></span><input id="s-catchup" type="range" min="0.1" max="1" step="0.05" /></label>
-      <label class="row"><span>跟随距离 <output id="o-orbit"></output></span><input id="s-orbit" type="range" min="1" max="4" step="0.1" /></label>
-      <label class="row"><span>转向角度 <output id="o-snap"></output></span><input id="s-snap" type="range" min="15" max="90" step="5" /></label>
-      <label class="row"><span>移动速度 <output id="o-speed"></output></span><input id="s-speed" type="range" min="0.8" max="4" step="0.1" /></label>
-      <label class="check"><input id="s-blink" type="checkbox" /> <span>回到第一人称时淡入淡出</span></label>
-
-      <h2>碰撞 <small>Collision</small></h2>
-      <label class="check"><input id="s-debug" type="checkbox" /> <span>显示碰撞体素</span></label>
-      <label class="row"><span>体素阈值 <output id="o-solid"></output></span><input id="s-solid" type="range" min="0.3" max="4" step="0.1" /></label>
-      <p class="hint">阈值越低越“硬”（稀疏的家具也会挡住你），越高越“软”（只有致密表面算障碍）。</p>
-
-      <h2>场景 <small>Scene</small></h2>
-      <div class="row buttons">
-        <button id="s-flip" class="btn small" type="button">上下翻转</button>
-        <button id="s-respawn" class="btn small" type="button">回到出生点</button>
-      </div>
-      <p class="hint" id="scene-info"></p>
-    </aside>
-
-    <section id="hud" class="hud" hidden>
-      <span id="hud-state" class="pill">第一人称</span>
-      <span id="hud-info"></span>
-    </section>
-
-    <section id="help" class="panel help">
-      <button id="help-toggle" class="help-title" type="button" aria-expanded="true">操作 <small>Controls</small></button>
-      <div class="help-body">
-        <div class="help-col">
-          <h3>桌面 / 手机</h3>
-          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动，<kbd>Shift</kbd> 跑</p>
-          <p><kbd>Q</kbd><kbd>E</kbd> 转向 · 鼠标拖拽环视</p>
-          <p>手机：左半屏摇杆，右半屏环视</p>
-        </div>
-        <div class="help-col">
-          <h3>VR 头显</h3>
-          <p>左摇杆：移动（第三人称）</p>
-          <p>右摇杆左右：转向</p>
-          <p>松开摇杆：回到第一人称</p>
-        </div>
-      </div>
-    </section>
-
-    <div id="drop" class="drop" hidden><div>松开以打开 <b>.spz / .ply</b></div></div>
-
-    <div id="loading" class="panel loading" hidden>
-      <div class="loading-title" id="loading-title">加载中</div>
-      <div class="progress"><div id="loading-bar"></div></div>
-      <div class="loading-stage" id="loading-stage"></div>
-    </div>
-
-    <div id="toast" class="toast" role="status" hidden></div>
+<body class="mode-intro">
+  <div id="boot" class="boot" aria-hidden="true">
+    <svg viewBox="0 0 32 32"><path d="M9 8v8.5a7 7 0 0 0 14 0V8" fill="none" stroke="#e8ecf1" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="25.5" r="2" fill="#4fd1c5"/></svg>
   </div>
+
+  <canvas id="view" tabindex="0" aria-label="3D scene"></canvas>
+  <div class="scrim" aria-hidden="true"></div>
+
+  <header class="bar">
+    <a class="brand" href="#" id="home" aria-label="UkemiXR home">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M9 8v8.5a7 7 0 0 0 14 0V8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+        <circle cx="16" cy="25.5" r="2" fill="var(--accent)" />
+      </svg>
+      <span class="brand-name">UkemiXR</span>
+    </a>
+
+    <nav class="nav intro-only" aria-label="Page sections">
+      <a href="#scenes">Scenes</a>
+      <a href="#comfort">Comfort</a>
+      <a href="#how">How it works</a>
+    </nav>
+
+    <div class="bar-actions">
+      <div class="walk-only scene-switch">
+        <select id="sample" class="btn select" aria-label="Switch scene"></select>
+      </div>
+      <button id="open" class="btn walk-only" type="button" title="Import .spz / .ply">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3.5M6.2 7.2 10 3.5l3.8 3.7M3.5 12.5v2A2 2 0 0 0 5.5 16.5h9a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Import</span>
+      </button>
+      <button id="vr" class="btn primary" type="button" disabled>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 7.5A2 2 0 0 1 4.5 5.5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3l-1.6-2.2a1.1 1.1 0 0 0-1.8 0L7.5 14.5h-3a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+        <span id="vr-label">Checking VR…</span>
+      </button>
+      <button id="settings-toggle" class="btn icon walk-only" type="button" aria-label="Settings" aria-expanded="false">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="6" r="2" fill="var(--panel-solid)" stroke="currentColor" stroke-width="1.6"/><circle cx="12.5" cy="14" r="2" fill="var(--panel-solid)" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+    </div>
+    <input id="file" type="file" accept=".spz,.ply,.splat,.ksplat,.sog" hidden />
+  </header>
+
+  <!-- ============================================================ intro -->
+  <main id="intro" class="intro">
+    <section class="hero">
+      <div class="eyebrow"><span class="live-dot"></span>Live in your browser · WebXR</div>
+      <h1><span class="line">Step inside any</span> <em class="line">Gaussian world</em></h1>
+      <p class="lede">UkemiXR turns 3D Gaussian splats into places you can walk through, bump into, and step inside with a headset. Nothing to install — just open the page.</p>
+      <p class="lede-en">Keyboard on desktop, fingers on mobile, controllers in VR — and no motion sickness.</p>
+      <div class="cta">
+        <button id="explore" class="btn primary large" type="button">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4.8v10.4a.6.6 0 0 0 .9.5l8-5.2a.6.6 0 0 0 0-1L7.9 4.3a.6.6 0 0 0-.9.5z" fill="currentColor"/></svg>
+          Start exploring
+        </button>
+        <button id="vr-hero" class="btn large ghost" type="button">Enter VR</button>
+        <button id="import-hero" class="btn large ghost" type="button">Import your model</button>
+      </div>
+      <dl class="stats" aria-live="polite">
+        <div><dt>Splats</dt><dd id="st-splats">—</dd></div>
+        <div><dt>Collision build</dt><dd id="st-collide">—</dd></div>
+        <div><dt>FPS</dt><dd id="st-fps">—</dd></div>
+      </dl>
+      <div id="intro-progress" class="intro-progress" hidden>
+        <span id="intro-progress-label">Loading scene…</span>
+        <div class="progress"><div id="intro-progress-bar"></div></div>
+      </div>
+      <a class="scroll-cue" href="#scenes" aria-label="Scroll down">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </a>
+    </section>
+
+    <section id="scenes" class="section">
+      <header class="section-head">
+        <h2>Pick a world and walk in</h2>
+        <p>Samples generated with Marble, 500K splats each. Or drop your own <b>.spz / .ply</b> anywhere on the page.</p>
+      </header>
+      <div id="cards" class="cards"></div>
+    </section>
+
+    <section id="comfort" class="section">
+      <header class="section-head">
+        <h2>Why it doesn’t make you sick</h2>
+        <p>Motion sickness comes from continuous visual motion your body doesn’t feel. UkemiXR’s locomotion never glides the camera and never turns it for you — the same system we’ve tuned in Unity.</p>
+      </header>
+      <div class="comfort">
+        <figure class="timeline" aria-label="The avatar moves continuously; the camera jumps every 0.25 seconds and holds still in between">
+          <svg viewBox="0 0 640 250" role="img">
+            <line x1="60" y1="200" x2="620" y2="200" class="t-axis"/>
+            <line x1="60" y1="200" x2="60" y2="20" class="t-axis"/>
+            <text x="620" y="222" text-anchor="end" class="t-tick">time</text>
+            <text x="52" y="28" text-anchor="end" class="t-tick" transform="rotate(-90 52 28)">position</text>
+            <g class="t-grid">
+              <line x1="172" y1="200" x2="172" y2="20"/><line x1="284" y1="200" x2="284" y2="20"/>
+              <line x1="396" y1="200" x2="396" y2="20"/><line x1="508" y1="200" x2="508" y2="20"/>
+            </g>
+            <g class="t-tick" text-anchor="middle">
+              <text x="172" y="222">0.25 s</text><text x="284" y="222">0.50 s</text><text x="396" y="222">0.75 s</text><text x="508" y="222">1.00 s</text>
+            </g>
+            <path d="M60 184 L172 184 L172 152 L284 152 L284 120 L396 120 L396 88 L508 88 L508 56 L620 56" fill="none" stroke="#e8ecf1" stroke-width="3.5" stroke-linejoin="round"/>
+            <g fill="#e8ecf1"><circle cx="172" cy="152" r="4.5"/><circle cx="284" cy="120" r="4.5"/><circle cx="396" cy="88" r="4.5"/><circle cx="508" cy="56" r="4.5"/></g>
+            <line x1="60" y1="152" x2="620" y2="24" stroke="#4fd1c5" stroke-width="3.5" stroke-linecap="round"/>
+            <g class="t-legend">
+              <rect x="80" y="30" width="18" height="4" rx="2" fill="#4fd1c5"/><text x="106" y="36">Avatar: walks continuously</text>
+              <rect x="80" y="52" width="18" height="4" rx="2" fill="#e8ecf1"/><text x="106" y="58">Camera: still → cut → still</text>
+            </g>
+          </svg>
+          <figcaption>Every 0.25 s the camera cuts to 2.5 m behind the avatar, and holds perfectly still in between. No continuous flow, no motion sickness.</figcaption>
+        </figure>
+        <ul class="comfort-list">
+          <li><b>Standing: first person</b><span>Your headset sits in the avatar’s head, room-scale 1:1.</span></li>
+          <li><b>Stick: third person</b><span>The avatar walks; the camera holds and cuts every 0.25 s.</span></li>
+          <li><b>Turning: 35° snaps</b><span>While walking it orbits the avatar. Never a smooth spin.</span></li>
+          <li><b>Let go: back in your head</b><span>One short fade back to first person.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="how" class="section">
+      <header class="section-head">
+        <h2>From one file to a space you can walk</h2>
+        <p>All in the browser, in seconds.</p>
+      </header>
+      <ol class="pipeline">
+        <li><span class="step">01</span><b>Import</b><p>.spz · .ply · .splat · .ksplat · .sog — just drop it in.</p></li>
+        <li><span class="step">02</span><b>Render</b><p>Spark Gaussian renderer: desktop, mobile and stereo headsets on one path.</p></li>
+        <li><span class="step">03</span><b>Collide</b><p>Voxelized from the splats on load: a floor to stand on, walls that stop you, no walking off the edge.</p></li>
+        <li><span class="step">04</span><b>Locomotion</b><p>Ported from our Unity VR character system, parameter for parameter.</p></li>
+        <li><span class="step">05</span><b>WebXR</b><p>One tap into VR from the Quest, Pico and Vision Pro browsers.</p></li>
+      </ol>
+    </section>
+
+    <section class="section closing">
+      <h2>Walk in now</h2>
+      <p>Keyboard and mouse on desktop, fingers on mobile, controllers in a headset. Same link.</p>
+      <div class="cta">
+        <button id="explore-2" class="btn primary large" type="button">Start exploring</button>
+        <button id="import-2" class="btn large ghost" type="button">Import your model</button>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>© 2026 UkemiXR</span>
+      <span>Rendering by Spark · WebXR · three.js</span>
+    </footer>
+  </main>
+
+  <!-- ============================================================ walk mode -->
+  <aside id="settings" class="panel settings" hidden>
+    <h2>Locomotion</h2>
+    <label class="row">
+      <span>Camera follow</span>
+      <select id="s-follow">
+        <option value="auto">Auto (cuts in VR, smooth on desktop)</option>
+        <option value="discrete">Discrete cuts (as in Unity)</option>
+        <option value="smooth">Smooth follow</option>
+      </select>
+    </label>
+    <label class="row"><span>Catch-up interval <output id="o-catchup"></output></span><input id="s-catchup" type="range" min="0.1" max="1" step="0.05" /></label>
+    <label class="row"><span>Follow distance <output id="o-orbit"></output></span><input id="s-orbit" type="range" min="1" max="4" step="0.1" /></label>
+    <label class="row"><span>Snap angle <output id="o-snap"></output></span><input id="s-snap" type="range" min="15" max="90" step="5" /></label>
+    <label class="row"><span>Move speed <output id="o-speed"></output></span><input id="s-speed" type="range" min="0.8" max="4" step="0.1" /></label>
+    <label class="check"><input id="s-blink" type="checkbox" /> <span>Fade when returning to first person</span></label>
+
+    <h2>Collision</h2>
+    <label class="check"><input id="s-debug" type="checkbox" /> <span>Show collision voxels</span></label>
+    <label class="row"><span>Voxel threshold <output id="o-solid"></output></span><input id="s-solid" type="range" min="0.3" max="4" step="0.1" /></label>
+    <p class="hint">Lower is “harder” (even sparse furniture stops you); higher is “softer” (only dense surfaces count).</p>
+
+    <h2>Scene</h2>
+    <div class="row buttons">
+      <button id="s-flip" class="btn small" type="button">Flip upside down</button>
+      <button id="s-respawn" class="btn small" type="button">Back to spawn</button>
+    </div>
+    <p class="hint" id="scene-info"></p>
+  </aside>
+
+  <section id="hud" class="hud walk-only">
+    <span id="hud-state" class="pill">First person</span>
+    <span id="hud-info"></span>
+  </section>
+
+  <section id="help" class="panel help walk-only">
+    <button id="help-toggle" class="help-title" type="button" aria-expanded="true">Controls</button>
+    <div class="help-body">
+      <div class="help-col">
+        <h3>Desktop / mobile</h3>
+        <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> run</p>
+        <p><kbd>Q</kbd><kbd>E</kbd> turn · drag to look</p>
+        <p>Mobile: left half joystick, right half look</p>
+      </div>
+      <div class="help-col">
+        <h3>VR headset</h3>
+        <p>Left stick: walk (third person)</p>
+        <p>Right stick: snap turn</p>
+        <p><kbd>X</kbd>/<kbd>Y</kbd> menu · trigger to select</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="drop" class="drop" hidden>
+    <div class="drop-inner">
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3.5M6.2 7.2 10 3.5l3.8 3.7M3.5 12.5v2A2 2 0 0 0 5.5 16.5h9a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>Drop to open</b>
+      <span>.spz · .ply · .splat · .ksplat · .sog</span>
+    </div>
+  </div>
+
+  <div id="loading" class="panel loading" hidden>
+    <div class="loading-title" id="loading-title">Loading</div>
+    <div class="progress"><div id="loading-bar"></div></div>
+    <div class="loading-stage" id="loading-stage"></div>
+  </div>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><p class="noscript">JavaScript is required to open 3D scenes.</p></noscript>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
