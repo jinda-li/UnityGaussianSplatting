@@ -1,0 +1,29 @@
+{
+  "name": "ukemixr-splat-walk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "test:collision": "node tests/collision.test.mjs",
+    "test:e2e": "node tests/e2e.mjs living-room && node tests/e2e.mjs bamboo-courtyard",
+    "test:xr": "node tests/xr.mjs",
+    "test:upload": "node tests/upload.mjs SplatSamples/project-cozy-living-room-interior.ply SplatSamples/project-cozy-living-room-interior.spz",
+    "test": "npm run test:collision && npm run test:e2e && npm run test:xr && npm run test:upload"
+  },
+  "dependencies": {
+    "@sparkjsdev/spark": "^2.2.0",
+    "iwer": "^2.5.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1",
+    "vite": "^8.3.1"
+  },
+  "description": "UkemiXR Splat Walk: open .spz/.ply Gaussian splats in the browser, walk them with the Unity locomotion rig, enter VR via WebXR.",
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>UkemiXR Splat Walk</title>
+  <meta name="description" content="UkemiXR — 在浏览器里打开 3D 高斯场景，走进去，戴上头显直接进入 VR。" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="view" tabindex="0"></canvas>
+
+    <header class="bar">
+      <a class="brand" href="/" aria-label="UkemiXR">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="14.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".35" />
+          <path d="M9 9v8a7 7 0 0 0 14 0V9" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+          <circle cx="16" cy="25.5" r="1.8" fill="var(--accent)" />
+        </svg>
+        <span class="brand-name">UkemiXR</span>
+        <span class="brand-sub">Splat Walk</span>
+      </a>
+      <div class="bar-actions">
+        <select id="sample" class="btn select" aria-label="示例场景"></select>
+        <button id="open" class="btn" type="button">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h3.3l1.6 1.8h6.1A1.5 1.5 0 0 1 17 7.3v7.2a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          <span>打开 .spz / .ply</span>
+        </button>
+        <button id="vr" class="btn primary" type="button" disabled>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 7.5A2 2 0 0 1 4.5 5.5h11a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-3l-1.6-2.2a1.1 1.1 0 0 0-1.8 0L7.5 14.5h-3a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          <span id="vr-label">检测 VR…</span>
+        </button>
+        <button id="settings-toggle" class="btn icon" type="button" aria-label="设置" aria-expanded="false">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M4 14h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="8" cy="6" r="2" fill="var(--panel)" stroke="currentColor" stroke-width="1.6"/><circle cx="12.5" cy="14" r="2" fill="var(--panel)" stroke="currentColor" stroke-width="1.6"/></svg>
+        </button>
+      </div>
+      <input id="file" type="file" accept=".spz,.ply,.splat,.ksplat,.sog" hidden />
+    </header>
+
+    <aside id="settings" class="panel settings" hidden>
+      <h2>镜头调度 <small>Locomotion</small></h2>
+      <label class="row">
+        <span>跟随方式</span>
+        <select id="s-follow">
+          <option value="auto">自动（VR 瞬移 / 桌面平滑）</option>
+          <option value="discrete">瞬移追赶（Unity 同款）</option>
+          <option value="smooth">平滑跟随</option>
+        </select>
+      </label>
+      <label class="row"><span>追赶间隔 <output id="o-catchup"></output></span><input id="s-catchup" type="range" min="0.1" max="1" step="0.05" /></label>
+      <label class="row"><span>跟随距离 <output id="o-orbit"></output></span><input id="s-orbit" type="range" min="1" max="4" step="0.1" /></label>
+      <label class="row"><span>转向角度 <output id="o-snap"></output></span><input id="s-snap" type="range" min="15" max="90" step="5" /></label>
+      <label class="row"><span>移动速度 <output id="o-speed"></output></span><input id="s-speed" type="range" min="0.8" max="4" step="0.1" /></label>
+      <label class="check"><input id="s-blink" type="checkbox" /> <span>回到第一人称时淡入淡出</span></label>
+
+      <h2>碰撞 <small>Collision</small></h2>
+      <label class="check"><input id="s-debug" type="checkbox" /> <span>显示碰撞体素</span></label>
+      <label class="row"><span>体素阈值 <output id="o-solid"></output></span><input id="s-solid" type="range" min="0.3" max="4" step="0.1" /></label>
+      <p class="hint">阈值越低越“硬”（稀疏的家具也会挡住你），越高越“软”（只有致密表面算障碍）。</p>
+
+      <h2>场景 <small>Scene</small></h2>
+      <div class="row buttons">
+        <button id="s-flip" class="btn small" type="button">上下翻转</button>
+        <button id="s-respawn" class="btn small" type="button">回到出生点</button>
+      </div>
+      <p class="hint" id="scene-info"></p>
+    </aside>
+
+    <section id="hud" class="hud" hidden>
+      <span id="hud-state" class="pill">第一人称</span>
+      <span id="hud-info"></span>
+    </section>
+
+    <section id="help" class="panel help">
+      <button id="help-toggle" class="help-title" type="button" aria-expanded="true">操作 <small>Controls</small></button>
+      <div class="help-body">
+        <div class="help-col">
+          <h3>桌面 / 手机</h3>
+          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动，<kbd>Shift</kbd> 跑</p>
+          <p><kbd>Q</kbd><kbd>E</kbd> 转向 · 鼠标拖拽环视</p>
+          <p>手机：左半屏摇杆，右半屏环视</p>
+        </div>
+        <div class="help-col">
+          <h3>VR 头显</h3>
+          <p>左摇杆：移动（第三人称）</p>
+          <p>右摇杆左右：转向</p>
+          <p>松开摇杆：回到第一人称</p>
+        </div>
+      </div>
+    </section>
+
+    <div id="drop" class="drop" hidden><div>松开以打开 <b>.spz / .ply</b></div></div>
+
+    <div id="loading" class="panel loading" hidden>
+      <div class="loading-title" id="loading-title">加载中</div>
+      <div class="progress"><div id="loading-bar"></div></div>
+      <div class="loading-stage" id="loading-stage"></div>
+    </div>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

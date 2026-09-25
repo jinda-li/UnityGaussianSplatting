@@ -60,6 +60,7 @@ The rendering takes game object transformation matrix into account; the official
 
 Additional documentation:
 
+* [Web viewer: walk splats in the browser and WebXR (UkemiXR Splat Walk)](/projects/GaussianExample-URP/Web/README.md)
 * [Render Pipeline Integration](/docs/render-pipeline-integration.md)
 * [Editing Splats](/docs/splat-editing.md)
 
