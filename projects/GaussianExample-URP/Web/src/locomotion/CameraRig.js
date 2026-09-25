@@ -62,20 +62,22 @@ export class CameraRig {
     this.raycast = raycast;
     this.input = input;
 
-    // Serialized fields of VRCameraRigController, same defaults.
+    // Serialized fields of VRCameraRigController, with the values the
+    // "VR Player Locomotion" prefab (and the Forest scene) actually use rather
+    // than the script defaults: a cut every second, not every 0.25 s.
     this.snapAngleDeg = 35;
     this.orbitRadius = 2.5;
     this.preventOrbitClipping = true;
     this.orbitCollisionBuffer = 0.1;
-    this.catchUpInterval = 0.25;
+    this.catchUpInterval = 1.0;
     this.catchUpOnlyWhileLocomoting = true;
     this.catchUpToOrbitDistance = 1.0;
     this.locomotionStartDeadzone = 0.2;
     this.forwardConeHalfAngleDeg = 30;
     this.backwardConeHalfAngleDeg = 35;
-    this.strafeNudgeBackMeters = 0.25;
-    this.strafeNudgeSideMeters = 0.25;
-    this.backwardSnapBackMeters = 1.0;
+    this.strafeNudgeBackMeters = 1.0;
+    this.strafeNudgeSideMeters = 0;
+    this.backwardSnapBackMeters = 2.0;
 
     // Web additions. 'discrete' is the Unity behaviour. 'smooth' eases the
     // rig towards the orbit point every frame - nicer on a flat screen, where
@@ -89,7 +91,7 @@ export class CameraRig {
     this.keepYawOnReturn = true;
 
     this.isLocomoting = false;
-    this.onTeleport = null; // (kind, distance) => void, for the blink overlay
+    this.onTeleport = null; // (kind, distance) => void
 
     // Not in the C#: no two cuts closer than this (unless the avatar is
     // already behind the lens), so a timer cut and a jump-back never land on

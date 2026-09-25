@@ -74,8 +74,8 @@ const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.03, 1
 rig.add(camera);
 scene.add(rig);
 
-// Fade shell around the eyes: blinks on big cuts, darkens when the head is
-// inside a wall.
+// Fade shell around the eyes: darkens when the head is inside a wall. Cuts
+// (including the jump back into the head) are instant, with no blink.
 const fade = new THREE.Mesh(
   new THREE.SphereGeometry(0.12, 16, 12),
   new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
@@ -83,7 +83,6 @@ const fade = new THREE.Mesh(
 fade.renderOrder = 1e6;
 fade.visible = false;
 camera.add(fade);
-let blinkT = 1;
 let wallFade = 0;
 
 // ---------------------------------------------------------------- state
@@ -116,9 +115,6 @@ const cameraRig = new CameraRig({
   raycast: (o, d, max) => (world ? world.raycast(o.x, o.y, o.z, d.x, d.y, d.z, max) : Infinity),
 });
 player.cameraRig = cameraRig;
-cameraRig.onTeleport = (kind, dist) => {
-  if (kind === 'return' && settings.blink && dist > 0.4) blinkT = 0;
-};
 
 // Desktop look: yaw/pitch of the camera inside the rig. In XR the headset
 // owns the camera pose and this is ignored.
@@ -396,6 +392,7 @@ const xr = new XrControllers(renderer, rig);
 const raycaster = new THREE.Raycaster();
 
 const menu = new VrMenu({
+  anisotropy: renderer.capabilities.getMaxAnisotropy(),
   items: () => {
     const scenes = SAMPLES.filter((s) => !s.dev).map((s) => ({
       id: s.id, kind: 'scene', label: s.name, sub: s.kind, thumb: s.thumb, active: current?.id === s.id,
@@ -405,14 +402,12 @@ const menu = new VrMenu({
       ...scenes,
       { id: 'close', kind: 'action', label: 'Continue', sub: 'Close menu', primary: true },
       { id: 'respawn', kind: 'action', label: 'Respawn', sub: 'Back to start' },
-      { id: 'blink', kind: 'action', label: 'Comfort fade', sub: settings.blink ? 'On' : 'Off' },
       { id: 'exit', kind: 'action', label: 'Exit VR', sub: 'Back to browser' },
     ];
   },
   onPick: (id) => {
     if (id === 'close') closeMenu();
     else if (id === 'respawn') { closeMenu(); respawn(); }
-    else if (id === 'blink') { settings.blink = !settings.blink; $('s-blink').checked = settings.blink; applySettings(); menu.redraw(); }
     else if (id === 'exit') { closeMenu(); xrSession?.end(); }
     else if (id === 'user' && userScene) { closeMenu(); if (current?.id !== 'user') loadSplat(userScene); }
     else {
@@ -582,14 +577,8 @@ function step(dt) {
         (len > 0.05 && world.raycast(a.x, a.y, a.z, d.x, d.y, d.z, len) < len)) wallTarget = 0.92;
   }
   wallFade += (wallTarget - wallFade) * Math.min(1, dt * 10);
-  let blink = 0;
-  if (blinkT < 1) {
-    blinkT = Math.min(1, blinkT + dt / 0.25);
-    blink = 1 - Math.abs(blinkT * 2 - 1);
-  }
-  const f = Math.max(blink, wallFade);
-  fade.visible = f > 0.01;
-  fade.material.opacity = f;
+  fade.visible = wallFade > 0.01;
+  fade.material.opacity = wallFade;
 
   // Controller hint for the first seconds in the headset.
   const left = xr.hands.left;
@@ -883,7 +872,7 @@ function setupUi() {
   const follow = $('s-follow');
   follow.value = settings.follow;
   follow.addEventListener('change', () => { settings.follow = follow.value; applySettings(); });
-  for (const key of ['blink', 'debug']) {
+  for (const key of ['debug']) {
     const el = $(`s-${key}`);
     el.checked = settings[key];
     el.addEventListener('change', () => { settings[key] = el.checked; applySettings(); });
@@ -918,14 +907,15 @@ function makeHintLabel(text) {
   g.beginPath();
   g.roundRect(0, 0, 1024, 128, 64);
   g.fill();
-  g.fillStyle = '#e8ecf1';
-  g.font = '500 48px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+  g.fillStyle = '#ffffff';
+  g.font = '600 48px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(text, 512, 66);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.03), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false }));
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.03), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false }));
   m.position.set(0, 0.06, -0.02);
   m.rotation.x = -0.6;
   m.renderOrder = 1e5;

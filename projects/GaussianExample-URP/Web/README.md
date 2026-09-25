@@ -108,19 +108,19 @@ Marble 自己也在用。支持 `.spz` `.ply`（含压缩 PLY）`.splat` `.kspla
 
 ### 4. Unity 的 locomotion 怎么迁移过来
 
-逐文件移植，参数默认值与 Unity 序列化值一致：
+逐文件移植，参数默认值与 Unity 预制体（`VR Player Locomotion.prefab`）里的序列化值一致：
 
 | Unity | Web | 说明 |
 |-------|-----|------|
 | `VRPlayerControllerInput.cs` | `src/locomotion/PlayerInput.js` | 同样的缓冲边沿 + 迟滞阈值（移动 0.20/0.15，转向 0.75/0.50） |
-| `VRCameraRigController.cs` | `src/locomotion/CameraRig.js` | 瞬移追赶、环绕半径 2.5 m、追赶间隔 0.25 s、35° 转向、起步推镜、环绕防穿墙 |
+| `VRCameraRigController.cs` | `src/locomotion/CameraRig.js` | 瞬移追赶、环绕半径 2.5 m、追赶间隔 1 s、35° 转向、起步推镜（侧移后退 1 m、后退 2 m）、环绕防穿墙 |
 | `PlayerController.cs` | `src/locomotion/PlayerController.js` | Idle / Locomotion 两态、视线相对移动 2.5 m/s、room-scale 头动带身体 |
 | CharacterController + MeshCollider | `src/collision/VoxelWorld.js` | `moveAndSlide` ≈ `CharacterController.Move` |
 | VRIK + 人形角色 | `src/avatar/Avatar.js` | Mixamo 人形（three.js 示例里的 X Bot，`?avatar=soldier` 可换 Soldier），Idle/Walk/Run 按实际速度混合，步频跟地速匹配 |
 | （Unity Input System） | `src/locomotion/InputSources.js` | WebXR 手柄、键盘、鼠标、手柄、手机触摸 |
 
 防晕的核心没有变：**走路时镜头从不连续移动、从不自己转**。人物往前走，镜头原地不动，
-每 0.25 s 切到人物身后 2.5 m；人物朝镜头走过来（< 1 m）时立刻往后跳；松开摇杆，镜头瞬移回人物头里。
+每 1 s 切到人物身后 2.5 m；人物朝镜头走过来（< 1 m）时立刻往后跳；松开摇杆，镜头瞬移回人物头里。
 没有连续的视觉流动就没有 vection，也就不晕。
 
 和 Unity 的差异（都是有意的）：
@@ -128,12 +128,11 @@ Marble 自己也在用。支持 `.spz` `.ply`（含压缩 PLY）`.splat` `.kspla
 - **回到第一人称时保持当前朝向**。Unity 会把视角转到 avatar 头的朝向（VRIK 的头本来就看着你看的方向，
   所以几乎不转）；这里机器人是面朝行走方向的，照搬会多一次没人要的转向。`CameraRig.keepYawOnReturn` 可关。
 - **起步推镜也做了防穿墙**（Unity 只对环绕做了射线检测），贴墙起步不会把镜头推进墙里。
-- **后跳距离取 min(1 m, 剩余距离)**，避免离目标很近时来回过冲。
+- **后跳距离取 min(2 m, 剩余距离)**，避免离目标很近时来回过冲。
 - **贴墙时不再每帧后跳**：Unity 的「角色离镜头 < 1 m 就后跳」在墙边会每帧触发（环绕点被墙截到 1 m 以内），
   镜头就变成连续滑动——恰恰是这套系统要避免的。这里阈值随墙允许的环绕距离缩小，并且任意两次切换至少间隔 0.2 s。
-- **桌面默认平滑跟随**：平面屏幕上每秒 4 次的硬切看起来像掉帧；VR 里自动切回瞬移追赶。
+- **桌面默认平滑跟随**：平面屏幕上的周期性硬切看起来像掉帧；VR 里自动切回瞬移追赶。
   设置里可以强制任一种。
-- **回到第一人称时 0.25 s 淡入淡出**（可关）。
 - Dodge roll（B 键翻滚）依赖 Mecanim 动画根运动，没有移植；按键缓冲已在 `PlayerInput` 里留好。
 
 ## 测试
@@ -150,7 +149,7 @@ npm test
 | `tests/e2e.mjs` | 无头 Chromium 驱动真页面：第一人称 ↔ 第三人称、镜头只做离散跳切（间隔 ≥0.2 s）且不自转、撞家具停下、35° 转向、后退不穿脸 |
 | `tests/tour.mjs` | 两个场景各走一圈：按碰撞网格规划路径、用摇杆走到 8 个方向最远处；自动找低/中/高三类宽障碍（桌子、座椅沙发、墙柜）正面撞上去必须停在跟前；**每一帧**检查身体不在几何体里、脚在地面上 |
 | `tests/floorMap.mjs` | 带 1 m 坐标网格的俯视诊断图：绿=能走到、红=挡身体、蓝=没有地面 |
-| `tests/xr.mjs` | 模拟 Quest 3（IWER）：点 Enter VR、摇杆行走（离散跳切 ≥0.25 s）、快转、X 打开菜单、射线瞄准 + 扳机在 VR 内切换场景、头显穿墙淡黑、退出 VR |
+| `tests/xr.mjs` | 模拟 Quest 3（IWER）：点 Enter VR、摇杆行走（离散跳切，间隔 ≥0.2 s）、快转、X 打开菜单、射线瞄准 + 扳机在 VR 内切换场景、头显穿墙淡黑、退出 VR |
 | `tests/upload.mjs` | 通过文件选择框打开 `.ply` / `.spz` |
 | `tests/robustness.mjs` | 上下颠倒的 PLY 自动翻正、只有一张沙发的模型进展示模式、坏文件报错且保留当前场景、错误扩展名被拒 |
 | `tests/landing.mjs` | 首页各段截图（桌面 / 手机） |

@@ -68,7 +68,9 @@ for (let i = 1; i < r.length; ++i) if (dist(r[i].cam, r[i - 1].cam) > 1e-5) cutT
 const gaps = cutTimes.slice(1).map((c, i) => (c.t - cutTimes[i].t) / 1000);
 const minGap = gaps.length ? Math.min(...gaps) : Infinity;
 console.log('      cuts:', cutTimes.map((c) => `${c.d.toFixed(2)}m`).join(' '), '| gaps:', gaps.map((g) => g.toFixed(2)).join(' '));
-check('headset view moves only in discrete cuts, >= 0.2 s apart', cutTimes.length >= 3 && minGap >= 0.2,
+// With the prefab's 1 s catchUpInterval a 2 s walk (which reaches a wall at
+// ~1.3 m) gives the start jump-back plus one timer cut.
+check('headset view moves only in discrete cuts, >= 0.2 s apart', cutTimes.length >= 2 && minGap >= 0.2,
   `${cutTimes.length} cuts, min gap ${minGap.toFixed(2)} s`);
 
 await setStick('left', 0, 0);

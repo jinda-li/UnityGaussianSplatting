@@ -1,15 +1,17 @@
 // Viewer settings, remembered per browser. Defaults are the Unity rig's
-// serialized values (VRCameraRigController / PlayerController).
+// serialized values (VRCameraRigController / PlayerController as set up in
+// the VR Player Locomotion prefab).
 
-const KEY = 'ukemixr.splatwalk.settings.v1';
+// v2: catch-up default moved from 0.25 s to the prefab's 1 s, and the comfort
+// fade was dropped. A fresh key so browsers holding the old values reset.
+const KEY = 'ukemixr.splatwalk.settings.v2';
 
 export const DEFAULTS = {
   follow: 'auto', // auto | discrete | smooth
-  catchUp: 0.25,
+  catchUp: 1.0,
   orbit: 2.5,
   snap: 35,
   speed: 2.5,
-  blink: true,
   debug: false,
   solid: 1.0,
   xrScale: 0.75,

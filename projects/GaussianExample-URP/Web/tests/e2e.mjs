@@ -101,7 +101,7 @@ for (let i = 1; i < s.length; ++i) {
   yawDrift = Math.max(yawDrift, angDiff(s[i].yaw, s[0].yaw));
 }
 // Cuts must be discrete and spaced: at least the rig's minimum spacing of
-// 0.2 s (12 frames at 60 Hz); timer cuts come every 0.25 s.
+// 0.2 s (12 frames at 60 Hz); timer cuts come every 1 s.
 const gaps = cutFrames.slice(1).map((f, i) => f - cutFrames[i]);
 if (process.env.VERBOSE) console.log('      cuts at frames', cutFrames.map((f) => `${f}:${dist(s[f].cam, s[f - 1].cam).toFixed(2)}m/head ${Math.hypot(s[f].cam[0] - s[f].head[0], s[f].cam[2] - s[f].head[2]).toFixed(2)}`).join('  '));
 const minGap = gaps.length ? Math.min(...gaps) : Infinity;
